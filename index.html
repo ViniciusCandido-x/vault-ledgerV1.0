@@ -439,8 +439,9 @@ function userDataKey(email) {
 
 function hasLocalFinancialDataForActiveUser() {
   try {
-    if (ACTIVE_USER && ACTIVE_USER.email && localStorage.getItem(userDataKey(ACTIVE_USER.email))) return true;
-    return !!localStorage.getItem(STORAGE_KEY);
+    // SaaS: dados locais só podem ser considerados se estiverem vinculados ao e-mail logado.
+    // Nunca migrar automaticamente a chave antiga/global, para evitar que um novo usuário receba dados de outro.
+    return !!(ACTIVE_USER && ACTIVE_USER.email && localStorage.getItem(userDataKey(ACTIVE_USER.email)));
   } catch (e) {
     return false;
   }
@@ -468,13 +469,15 @@ function loadData() {
     if (ACTIVE_USER && ACTIVE_USER.email) {
       const userStored = localStorage.getItem(userDataKey(ACTIVE_USER.email));
       if (userStored) return JSON.parse(userStored);
+      // Usuário logado sem dados próprios começa limpo.
+      return emptyDataTemplate();
     }
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch (e) {
     console.error('Erro ao carregar:', e);
   }
-  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+  return emptyDataTemplate();
 }
 
 function saveData(options = {}) {
