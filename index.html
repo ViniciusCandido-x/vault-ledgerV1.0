@@ -353,6 +353,7 @@
     <div class="tab" data-page="analise">Análise</div>
     <div class="tab" data-page="ia">IA</div>
     <div class="tab" data-page="config">Config</div>
+    <div class="tab" id="adminTab" data-page="admin" style="display:none">Administração</div>
   </nav>
 
   <main class="content" id="content">
@@ -807,6 +808,7 @@ function render() {
     case 'analise': content.innerHTML = renderAnalise(); break;
     case 'ia': content.innerHTML = renderIA(); setupChat(); break;
     case 'config': content.innerHTML = renderConfig(); break;
+    case 'admin': content.innerHTML = renderAdmin(); break;
   }
   
   // Period selector listener
@@ -2050,64 +2052,55 @@ function renderChatMessages(loading) {
 // ============================================================
 function renderConfig() {
   const userName = DATA.config.userName || '';
+  const status = ACTIVE_PROFILE?.subscription_status || 'trial';
+  const plan = ACTIVE_PROFILE?.subscription_plan || 'mensal';
+  const due = ACTIVE_PROFILE?.subscription_due_date ? fmtDate(ACTIVE_PROFILE.subscription_due_date) : 'Sem vencimento definido';
+  const isAdm = ACTIVE_PROFILE?.is_admin ? 'Sim' : 'Não';
   return `
     <div class="section">
-      <div class="section-title" style="font-family:var(--fh)">Perfil</div>
+      <div class="section-title" style="font-family:var(--fh)">Minha conta</div>
       <div class="form-group">
         <label class="form-label">Seu nome (aparece no app)</label>
-        <input class="form-input" type="text" id="cfgUserName" value="${userName}"
+        <input class="form-input" type="text" id="cfgUserName" value="${esc(userName)}"
           placeholder="Ex: Vinicius"
           onchange="DATA.config.userName=this.value.trim();saveData();updateHeaderName();">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Exibido no cabeçalho e na tela de boas-vindas</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Exibido no cabeçalho e na tela de boas-vindas.</div>
       </div>
-    </div>
-
-
-
-    <div class="section">
-      <div class="section-title" style="font-family:var(--fh)">Conta e assinatura</div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:12px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:var(--text-secondary);line-height:1.8">
         <div><strong>E-mail:</strong> ${esc((ACTIVE_USER && ACTIVE_USER.email) || DATA.config.userEmail || '-')}</div>
-        <div><strong>Status:</strong> ${subscriptionLabel((getUserByEmail((ACTIVE_USER && ACTIVE_USER.email) || DATA.config.userEmail || '') || {}).subscriptionStatus || 'trial')}</div>
+        <div><strong>Plano:</strong> ${esc(plan)}</div>
+        <div><strong>Status:</strong> ${subscriptionLabel(status)}</div>
+        <div><strong>Vencimento:</strong> ${due}</div>
+        <div><strong>Administrador:</strong> ${isAdm}</div>
       </div>
-      <button class="btn btn-secondary" onclick="logout()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Sair da conta</button>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Status controlado pela tabela <strong>profiles</strong> no Supabase.</div>
+      <button class="btn btn-secondary" onclick="logout()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:12px">Sair da conta</button>
     </div>
 
     <div class="section">
-      <div class="section-title" style="font-family:var(--fh)">Configurações</div>
+      <div class="section-title" style="font-family:var(--fh)">Configurações financeiras</div>
       <div class="form-group">
         <label class="form-label">Saldo inicial em conta</label>
         <input class="form-input" type="number" step="0.01" value="${DATA.config.saldoInicial}"
           onchange="DATA.config.saldoInicial = parseFloat(this.value) || 0; saveData(); render();">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Saldo na conta no fim do dia da data de corte</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Saldo na conta no fim do dia da data de corte.</div>
       </div>
       <div class="form-group">
         <label class="form-label">Data de corte</label>
         <input class="form-input" type="date" value="${DATA.config.dataCorte}"
           onchange="DATA.config.dataCorte = this.value; saveData(); render();">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Data em que o saldo inicial foi medido</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Data em que o saldo inicial foi medido.</div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-title" style="font-family:var(--fh)">Dados</div>
+      <div class="section-title" style="font-family:var(--fh)">Dados e sincronização</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-primary" onclick="forceCloudSync()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Sincronizar agora com a nuvem</button>
         <button class="btn btn-secondary" onclick="reloadFromCloud()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Carregar dados da nuvem</button>
-        <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Agora os dados são salvos no Supabase por usuário. O JSON continua disponível apenas como backup manual.</div>
-        <button class="btn btn-secondary" onclick="exportData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Exportar dados (.json)
-        </button>
-        <button class="btn btn-secondary" onclick="importData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Importar dados (.json)
-        </button>
-        <button class="btn btn-danger" onclick="resetData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-          Apagar tudo e começar do zero
-        </button>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Os dados são salvos no Supabase por usuário. O JSON continua disponível apenas como backup manual.</div>
+        <button class="btn btn-secondary" onclick="exportData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Exportar dados (.json)</button>
+        <button class="btn btn-secondary" onclick="importData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Importar dados (.json)</button>
+        <button class="btn btn-danger" onclick="resetData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Apagar tudo e começar do zero</button>
       </div>
     </div>
 
@@ -2116,17 +2109,149 @@ function renderConfig() {
       <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">
         <div style="font-family:var(--fh);font-weight:800;font-size:18px;background:linear-gradient(90deg,#1E293B,#2563EB);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px">Vault Ledger</div>
         <p>Gestão financeira pessoal inteligente.</p>
-        <p style="margin-top:6px;font-size:12px;color:var(--text-muted)">Os dados financeiros agora são salvos no Supabase e separados por usuário autenticado.</p>
+        <p style="margin-top:6px;font-size:12px;color:var(--text-muted)">Versão comercial com autenticação, assinatura e dados em nuvem.</p>
       </div>
     </div>
 
-    <!-- Rodapé crédito -->
     <div style="text-align:center;padding:24px 0 8px">
       <div style="font-size:10px;color:var(--text-muted);letter-spacing:.3px">Desenvolvido por <span style="color:var(--text-secondary);font-weight:500">Vinicius Candido dos Santos</span> · 2026</div>
     </div>
   `;
 }
 
+let ADMIN_PROFILES = null;
+let ADMIN_LOADING = false;
+
+function isAdminUser() {
+  return !!ACTIVE_PROFILE?.is_admin;
+}
+
+function renderAdmin() {
+  if (!isAdminUser()) {
+    return `<div class="section"><div class="section-title">Acesso restrito</div><div style="font-size:13px;color:var(--text-secondary)">Esta área é visível apenas para administradores.</div></div>`;
+  }
+  if (!ADMIN_PROFILES && !ADMIN_LOADING) {
+    setTimeout(loadAdminProfiles, 0);
+  }
+  const profiles = ADMIN_PROFILES || [];
+  const total = profiles.length;
+  const ativos = profiles.filter(p => ['trial','active'].includes(p.subscription_status) && !p.blocked).length;
+  const bloqueados = profiles.filter(p => p.blocked || ['blocked','canceled','past_due'].includes(p.subscription_status)).length;
+  return `
+    <div class="section">
+      <div class="section-title" style="font-family:var(--fh)">
+        Painel de assinantes
+        <button class="filter-btn" onclick="loadAdminProfiles(true)">Atualizar</button>
+      </div>
+      <div class="cards-grid">
+        <div class="card"><div class="card-label">Usuários</div><div class="card-value">${total}</div></div>
+        <div class="card success"><div class="card-label">Liberados</div><div class="card-value">${ativos}</div></div>
+        <div class="card danger"><div class="card-label">Restritos</div><div class="card-value">${bloqueados}</div></div>
+        <div class="card purple"><div class="card-label">Admin</div><div class="card-value">${profiles.filter(p=>p.is_admin).length}</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:8px">Controle manual de assinatura. Depois poderemos integrar Mercado Pago, Asaas, Stripe ou Pagar.me para atualizar esses status automaticamente.</div>
+    </div>
+    <div class="section" style="padding:0;overflow:hidden">
+      ${ADMIN_LOADING ? `<div class="empty"><div>Carregando assinantes...</div></div>` : profiles.length === 0 ? `<div class="empty"><div>Nenhum assinante encontrado.</div></div>` : `
+      <div class="table-wrapper" style="margin:0;padding:0">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Status</th>
+              <th>Plano</th>
+              <th>Vencimento</th>
+              <th>Bloqueado</th>
+              <th>Admin</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${profiles.map(p => renderAdminProfileRow(p)).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+  `;
+}
+
+function renderAdminProfileRow(p) {
+  const id = p.id;
+  const status = p.subscription_status || 'trial';
+  const plan = p.subscription_plan || 'mensal';
+  const due = p.subscription_due_date || '';
+  return `
+    <tr>
+      <td>
+        <div style="font-weight:700;color:var(--text)">${esc(p.nome || p.email || '-')}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${esc(p.email || '-')}</div>
+        <div style="font-size:10px;color:var(--text-muted)">Criado em ${p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}</div>
+      </td>
+      <td>
+        <select class="form-select" id="adm_status_${id}" style="min-width:150px">
+          ${['trial','active','past_due','blocked','canceled'].map(st => `<option value="${st}" ${status===st?'selected':''}>${subscriptionLabel(st)}</option>`).join('')}
+        </select>
+      </td>
+      <td><input class="form-input" id="adm_plan_${id}" value="${esc(plan)}" style="min-width:100px"></td>
+      <td><input class="form-input" type="date" id="adm_due_${id}" value="${esc(due)}" style="min-width:140px"></td>
+      <td>
+        <select class="form-select" id="adm_blocked_${id}" style="min-width:100px">
+          <option value="false" ${!p.blocked?'selected':''}>Não</option>
+          <option value="true" ${p.blocked?'selected':''}>Sim</option>
+        </select>
+      </td>
+      <td>
+        <span class="tag ${p.is_admin?'tag-purple':'tag-muted'}">${p.is_admin?'Sim':'Não'}</span>
+      </td>
+      <td>
+        <button class="btn btn-primary" onclick="adminSaveProfile('${id}')" style="padding:8px 12px;white-space:nowrap">Salvar</button>
+      </td>
+    </tr>`;
+}
+
+async function loadAdminProfiles(force = false) {
+  if (!isAdminUser()) return;
+  ADMIN_LOADING = true;
+  if (force) ADMIN_PROFILES = null;
+  render();
+  const { data, error } = await supabaseClient
+    .from('profiles')
+    .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin,created_at')
+    .order('created_at', { ascending: false });
+  ADMIN_LOADING = false;
+  if (error) {
+    console.error(error);
+    showToast('Erro ao carregar assinantes');
+    ADMIN_PROFILES = [];
+  } else {
+    ADMIN_PROFILES = data || [];
+  }
+  render();
+}
+
+async function adminSaveProfile(id) {
+  if (!isAdminUser()) return showToast('Acesso restrito');
+  const status = document.getElementById('adm_status_' + id)?.value || 'trial';
+  const plan = document.getElementById('adm_plan_' + id)?.value?.trim() || 'mensal';
+  const dueRaw = document.getElementById('adm_due_' + id)?.value || null;
+  const blocked = (document.getElementById('adm_blocked_' + id)?.value || 'false') === 'true';
+  const payload = {
+    subscription_status: status,
+    subscription_plan: plan,
+    subscription_due_date: dueRaw || null,
+    blocked
+  };
+  const { error } = await supabaseClient.from('profiles').update(payload).eq('id', id);
+  if (error) {
+    console.error(error);
+    return showToast('Erro ao salvar assinante');
+  }
+  showToast('Assinante atualizado');
+  await loadAdminProfiles(true);
+}
+
+// ============================================================
+// MODAIS
 // ============================================================
 // MODAIS
 // ============================================================
@@ -3105,7 +3230,9 @@ function getUserByEmail(email) {
     email: ACTIVE_USER.email,
     subscriptionStatus: ACTIVE_PROFILE?.subscription_status || 'trial',
     blocked: !!ACTIVE_PROFILE?.blocked,
-    plan: ACTIVE_PROFILE?.subscription_plan || 'mensal'
+    plan: ACTIVE_PROFILE?.subscription_plan || 'mensal',
+    dueDate: ACTIVE_PROFILE?.subscription_due_date || null,
+    isAdmin: !!ACTIVE_PROFILE?.is_admin
   };
 }
 
@@ -3163,7 +3290,7 @@ async function getProfile(user) {
   if (!user?.id) return null;
   let { data, error } = await supabaseClient
     .from('profiles')
-    .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked')
+    .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin')
     .eq('id', user.id)
     .single();
 
@@ -3171,7 +3298,7 @@ async function getProfile(user) {
     const inserted = await supabaseClient
       .from('profiles')
       .insert({ id: user.id, email: user.email, subscription_status: 'trial', subscription_plan: 'mensal', blocked: false })
-      .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked')
+      .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin')
       .single();
     data = inserted.data;
     error = inserted.error;
@@ -3285,18 +3412,18 @@ async function finishResetPassword() {
 }
 
 function renderBlocked(user) {
+  const status = subscriptionLabel(user.subscriptionStatus || user.subscription_status || 'blocked');
   renderAuthFrame(`
-    <div class="auth-title">Acesso bloqueado</div>
+    <div class="auth-title">Acesso temporariamente bloqueado</div>
     <div class="auth-subtitle">Sua assinatura não está ativa no momento.</div>
     <div class="auth-alert error">
       Conta: <strong>${esc(user.email)}</strong><br>
-      Status: <strong>${subscriptionLabel(user.subscriptionStatus || user.subscription_status || 'blocked')}</strong>
+      Status: <strong>${status}</strong>
     </div>
-    <div class="auth-alert info">Quando o pagamento for confirmado, o acesso será liberado pelo status da assinatura no Supabase.</div>
+    <div class="auth-alert info">Regularize sua assinatura para liberar o acesso. Após a confirmação do pagamento, o administrador atualiza o status no painel comercial.</div>
     <button class="btn btn-secondary" style="width:100%" onclick="logout()">Sair da conta</button>
   `);
 }
-
 async function unlockAsUser(user, profile, createdNow = false) {
   ACTIVE_USER = { id: user.id, email: normalizeEmail(user.email) };
   ACTIVE_PROFILE = profile || null;
@@ -3318,6 +3445,12 @@ async function unlockAsUser(user, profile, createdNow = false) {
   lockScreen.style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   document.getElementById('fab').style.display = 'flex';
+  const adminTab = document.getElementById('adminTab');
+  if (adminTab) adminTab.style.display = isAdminUser() ? 'block' : 'none';
+  if (!isAdminUser() && document.querySelector('.tab.active')?.dataset.page === 'admin') {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.tab[data-page="dashboard"]')?.classList.add('active');
+  }
   render();
   updateHeaderName();
   showToast(createdNow ? 'Conta criada com sucesso' : 'Login realizado');
@@ -3348,6 +3481,9 @@ async function logout() {
   await supabaseClient.auth.signOut();
   ACTIVE_USER = null;
   ACTIVE_PROFILE = null;
+  ADMIN_PROFILES = null;
+  const adminTab = document.getElementById('adminTab');
+  if (adminTab) adminTab.style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('fab').style.display = 'none';
   initLockScreen();
