@@ -378,6 +378,10 @@ const STORAGE_KEY = 'financas_vinicius';
 const AUTH_STORAGE_KEY = 'vault_ledger_auth_v1';
 const SESSION_STORAGE_KEY = 'vault_ledger_session_v1';
 let ACTIVE_USER = null;
+let CLOUD_READY = false;
+let CLOUD_SYNCING = false;
+let CLOUD_SAVE_TIMER = null;
+let CLOUD_LAST_SYNC = null;
 
 const DEFAULT_DATA = {
   config: {
@@ -432,6 +436,32 @@ function userDataKey(email) {
   return STORAGE_KEY + '_user_' + safeEmailKey(email);
 }
 
+function hasLocalFinancialDataForActiveUser() {
+  try {
+    if (ACTIVE_USER && ACTIVE_USER.email && localStorage.getItem(userDataKey(ACTIVE_USER.email))) return true;
+    return !!localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return false;
+  }
+}
+
+function emptyDataTemplate() {
+  return {
+    config: { saldoInicial: 0, dataCorte: todayISO ? todayISO() : new Date().toISOString().slice(0,10), userName: '', userEmail: '' },
+    receitas: [],
+    despesas: [],
+    emprestimos: [],
+    investimentos: [],
+    metas: { lista: [] },
+    devolucoes: [],
+    donosTerceiros: []
+  };
+}
+
+function cloneDefaultData() {
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+
 function loadData() {
   try {
     if (ACTIVE_USER && ACTIVE_USER.email) {
@@ -446,13 +476,16 @@ function loadData() {
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 
-function saveData() {
+function saveData(options = {}) {
   try {
     const key = (ACTIVE_USER && ACTIVE_USER.email) ? userDataKey(ACTIVE_USER.email) : STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify(DATA));
   } catch (e) {
-    showToast('Erro ao salvar dados');
+    showToast('Erro ao salvar dados localmente');
     console.error(e);
+  }
+  if (ACTIVE_USER && CLOUD_READY && !options.localOnly) {
+    scheduleCloudSave();
   }
 }
 
@@ -2038,7 +2071,7 @@ function renderConfig() {
         <div><strong>Status:</strong> ${subscriptionLabel((getUserByEmail((ACTIVE_USER && ACTIVE_USER.email) || DATA.config.userEmail || '') || {}).subscriptionStatus || 'trial')}</div>
       </div>
       <button class="btn btn-secondary" onclick="logout()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Sair da conta</button>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Na versão com Supabase, o status será atualizado pelo pagamento da assinatura.</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Status controlado pela tabela <strong>profiles</strong> no Supabase.</div>
     </div>
 
     <div class="section">
@@ -2060,6 +2093,9 @@ function renderConfig() {
     <div class="section">
       <div class="section-title" style="font-family:var(--fh)">Dados</div>
       <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary" onclick="forceCloudSync()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Sincronizar agora com a nuvem</button>
+        <button class="btn btn-secondary" onclick="reloadFromCloud()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Carregar dados da nuvem</button>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Agora os dados são salvos no Supabase por usuário. O JSON continua disponível apenas como backup manual.</div>
         <button class="btn btn-secondary" onclick="exportData()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Exportar dados (.json)
@@ -2080,7 +2116,7 @@ function renderConfig() {
       <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">
         <div style="font-family:var(--fh);font-weight:800;font-size:18px;background:linear-gradient(90deg,#1E293B,#2563EB);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px">Vault Ledger</div>
         <p>Gestão financeira pessoal inteligente.</p>
-        <p style="margin-top:6px;font-size:12px;color:var(--text-muted)">Os dados são salvos localmente. Use Exportar/Importar para sincronizar entre dispositivos.</p>
+        <p style="margin-top:6px;font-size:12px;color:var(--text-muted)">Os dados financeiros agora são salvos no Supabase e separados por usuário autenticado.</p>
       </div>
     </div>
 
@@ -2785,6 +2821,270 @@ const SUPABASE_URL = 'https://gcdhgpzslnwvihywzbak.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjZGhncHpzbG53dmloeXd6YmFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTMzNjQsImV4cCI6MjA5NDc4OTM2NH0.BmRwJMDvkHw5o75-HH38WZ_DE3AusaiKs8mJUY7vCFg';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+
+function normalizeMoney(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function boolCloudRows(arr) {
+  return Array.isArray(arr) && arr.length > 0;
+}
+
+function cloudHasAnyData(payload) {
+  if (!payload) return false;
+  return !!payload.settings || boolCloudRows(payload.receitas) || boolCloudRows(payload.despesas) ||
+    boolCloudRows(payload.emprestimos) || boolCloudRows(payload.investimentos) || boolCloudRows(payload.metas) ||
+    boolCloudRows(payload.devolucoes) || boolCloudRows(payload.donosTerceiros);
+}
+
+async function fetchUserCloudPayload(userId) {
+  const queries = await Promise.all([
+    supabaseClient.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
+    supabaseClient.from('receitas').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('despesas').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('emprestimos').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('donos_terceiros').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('devolucoes').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('investimentos').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('metas').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('aportes_metas').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabaseClient.from('user_migrations').select('*').eq('user_id', userId).maybeSingle()
+  ]);
+  const firstError = queries.find(q => q.error && q.error.code !== 'PGRST116')?.error;
+  if (firstError) throw firstError;
+  return {
+    settings: queries[0].data,
+    receitas: queries[1].data || [],
+    despesas: queries[2].data || [],
+    emprestimos: queries[3].data || [],
+    donosTerceiros: queries[4].data || [],
+    devolucoes: queries[5].data || [],
+    investimentos: queries[6].data || [],
+    metas: queries[7].data || [],
+    aportesMetas: queries[8].data || [],
+    migration: queries[9].data
+  };
+}
+
+function cloudPayloadToData(payload) {
+  const base = emptyDataTemplate();
+  base.config = {
+    saldoInicial: Number(payload.settings?.saldo_inicial || 0),
+    dataCorte: payload.settings?.data_corte || todayISO(),
+    userName: ACTIVE_PROFILE?.nome || '',
+    userEmail: ACTIVE_USER?.email || ''
+  };
+  base.receitas = (payload.receitas || []).map((r, idx) => ({
+    id: idx + 1,
+    dataPrev: r.data_prev,
+    dataReceb: r.data_receb,
+    categoria: r.categoria || '',
+    valor: r.valor === null ? null : Number(r.valor),
+    descricao: r.descricao || ''
+  }));
+  base.despesas = (payload.despesas || []).map((d, idx) => ({
+    id: idx + 1,
+    data: d.data,
+    dataPgto: d.data_pgto,
+    categoria: d.categoria || '',
+    sub: d.sub || '',
+    valor: d.valor === null ? null : Number(d.valor),
+    formaPgto: d.forma_pgto || '',
+    necessario: d.necessario || '',
+    desc: d.descricao || ''
+  }));
+  base.emprestimos = (payload.emprestimos || []).map((e, idx) => ({
+    id: idx + 1,
+    nome: e.nome || '',
+    contato: e.contato || '',
+    dataEmp: e.data_emp,
+    dataAcordada: e.data_acordada,
+    dataPgto: e.data_pgto,
+    valor: e.valor === null ? null : Number(e.valor),
+    juros: e.juros === null ? 0 : Number(e.juros),
+    origem: e.origem || 'Próprio',
+    donoTerceiro: e.dono_terceiro || '',
+    obs: e.obs || ''
+  }));
+  base.donosTerceiros = (payload.donosTerceiros || []).map(d => d.nome).filter(Boolean);
+  base.devolucoes = (payload.devolucoes || []).map((d, idx) => ({
+    id: idx + 1,
+    data: d.data,
+    valor: d.valor === null ? null : Number(d.valor),
+    destino: d.destino || '',
+    obs: d.obs || ''
+  }));
+  base.investimentos = (payload.investimentos || []).map((i, idx) => ({
+    id: idx + 1,
+    data: i.data,
+    tipo: i.tipo || '',
+    movimento: i.movimento || '',
+    valor: i.valor === null ? null : Number(i.valor),
+    descricao: i.descricao || ''
+  }));
+  const aportesPorMeta = new Map();
+  (payload.aportesMetas || []).forEach((a, idx) => {
+    if (!aportesPorMeta.has(a.meta_id)) aportesPorMeta.set(a.meta_id, []);
+    aportesPorMeta.get(a.meta_id).push({
+      id: idx + 1,
+      data: a.data,
+      valor: a.valor === null ? 0 : Number(a.valor),
+      origem: a.origem || '',
+      obs: a.obs || ''
+    });
+  });
+  base.metas = { lista: (payload.metas || []).map((m, idx) => ({
+    id: idx + 1,
+    nome: m.nome || 'Meta sem nome',
+    valorMeta: m.valor_meta === null ? 0 : Number(m.valor_meta),
+    status: m.status || 'Ativa',
+    obs: m.obs || '',
+    aportes: aportesPorMeta.get(m.id) || []
+  })) };
+  ensureMetasFormatFor(base);
+  return base;
+}
+
+function ensureMetasFormatFor(data) {
+  if (!data.metas) data.metas = { lista: [] };
+  if (!Array.isArray(data.metas.lista)) data.metas.lista = [];
+  data.metas.lista.forEach((m, idx) => {
+    if (!m.id) m.id = idx + 1;
+    if (!Array.isArray(m.aportes)) m.aportes = [];
+  });
+}
+
+async function loadDataFromCloudOrLocal(user, profile) {
+  const payload = await fetchUserCloudPayload(user.id);
+  if (cloudHasAnyData(payload)) {
+    const data = cloudPayloadToData(payload);
+    localStorage.setItem(userDataKey(user.email), JSON.stringify(data));
+    CLOUD_LAST_SYNC = new Date();
+    return data;
+  }
+
+  let data;
+  if (hasLocalFinancialDataForActiveUser()) {
+    data = loadData();
+    if (!data.config) data.config = {};
+    data.config.userEmail = normalizeEmail(user.email);
+    if (!data.config.userName) data.config.userName = profile?.nome || normalizeEmail(user.email).split('@')[0];
+    ensureMetasFormatFor(data);
+    await persistDataToCloud(data, user.id, { markMigration: true });
+  } else {
+    data = emptyDataTemplate();
+    data.config.userEmail = normalizeEmail(user.email);
+    data.config.userName = profile?.nome || normalizeEmail(user.email).split('@')[0];
+    await persistDataToCloud(data, user.id, { markMigration: true });
+  }
+  localStorage.setItem(userDataKey(user.email), JSON.stringify(data));
+  CLOUD_LAST_SYNC = new Date();
+  return data;
+}
+
+function scheduleCloudSave() {
+  clearTimeout(CLOUD_SAVE_TIMER);
+  CLOUD_SAVE_TIMER = setTimeout(() => {
+    persistDataToCloud(DATA, ACTIVE_USER?.id).catch(err => {
+      console.error('Erro ao sincronizar com Supabase:', err);
+      showToast('Erro ao sincronizar com a nuvem');
+    });
+  }, 800);
+}
+
+async function persistDataToCloud(data, userId, opts = {}) {
+  if (!userId || CLOUD_SYNCING) return;
+  CLOUD_SYNCING = true;
+  try {
+    ensureMetasFormatFor(data);
+    const cfg = data.config || {};
+    const { error: deleteSettingsError } = await supabaseClient.from('user_settings').delete().eq('user_id', userId);
+    if (deleteSettingsError) throw deleteSettingsError;
+    const { error: settingsError } = await supabaseClient.from('user_settings').insert({
+      user_id: userId,
+      saldo_inicial: normalizeMoney(cfg.saldoInicial) || 0,
+      data_corte: cfg.dataCorte || todayISO(),
+      updated_at: new Date().toISOString()
+    });
+    if (settingsError) throw settingsError;
+
+    const deleteOrder = ['aportes_metas','metas','receitas','despesas','emprestimos','donos_terceiros','devolucoes','investimentos'];
+    for (const table of deleteOrder) {
+      const { error } = await supabaseClient.from(table).delete().eq('user_id', userId);
+      if (error) throw error;
+    }
+
+    const receitasRows = (data.receitas || []).map(r => ({ user_id:userId, data_prev:r.dataPrev || null, data_receb:r.dataReceb || null, categoria:r.categoria || null, valor:normalizeMoney(r.valor), descricao:r.descricao || null }));
+    if (receitasRows.length) { const { error } = await supabaseClient.from('receitas').insert(receitasRows); if (error) throw error; }
+
+    const despesasRows = (data.despesas || []).map(d => ({ user_id:userId, data:d.data || null, data_pgto:d.dataPgto || null, categoria:d.categoria || null, sub:d.sub || null, valor:normalizeMoney(d.valor), forma_pgto:d.formaPgto || null, necessario:d.necessario || null, descricao:d.desc || d.descricao || null }));
+    if (despesasRows.length) { const { error } = await supabaseClient.from('despesas').insert(despesasRows); if (error) throw error; }
+
+    const emprestimosRows = (data.emprestimos || []).map(e => ({ user_id:userId, nome:e.nome || null, contato:e.contato || null, data_emp:e.dataEmp || null, data_acordada:e.dataAcordada || null, data_pgto:e.dataPgto || null, valor:normalizeMoney(e.valor), juros:normalizeMoney(e.juros) || 0, origem:e.origem || null, dono_terceiro:e.donoTerceiro || null, obs:e.obs || null }));
+    if (emprestimosRows.length) { const { error } = await supabaseClient.from('emprestimos').insert(emprestimosRows); if (error) throw error; }
+
+    const donosRows = [...new Set(data.donosTerceiros || [])].filter(Boolean).map(nome => ({ user_id:userId, nome }));
+    if (donosRows.length) { const { error } = await supabaseClient.from('donos_terceiros').insert(donosRows); if (error) throw error; }
+
+    const devolucoesRows = (data.devolucoes || []).map(d => ({ user_id:userId, data:d.data || null, valor:normalizeMoney(d.valor), destino:d.destino || null, obs:d.obs || null }));
+    if (devolucoesRows.length) { const { error } = await supabaseClient.from('devolucoes').insert(devolucoesRows); if (error) throw error; }
+
+    const investimentosRows = (data.investimentos || []).map(i => ({ user_id:userId, data:i.data || null, tipo:i.tipo || null, movimento:i.movimento || null, valor:normalizeMoney(i.valor), descricao:i.descricao || null }));
+    if (investimentosRows.length) { const { error } = await supabaseClient.from('investimentos').insert(investimentosRows); if (error) throw error; }
+
+    for (const meta of (data.metas?.lista || [])) {
+      const { data: insertedMeta, error: metaError } = await supabaseClient.from('metas').insert({
+        user_id:userId,
+        nome: meta.nome || 'Meta sem nome',
+        valor_meta: normalizeMoney(meta.valorMeta) || 0,
+        status: meta.status || 'Ativa',
+        obs: meta.obs || null
+      }).select('id').single();
+      if (metaError) throw metaError;
+      const aportesRows = (meta.aportes || []).map(a => ({ user_id:userId, meta_id:insertedMeta.id, data:a.data || aporteDateISO(a) || null, valor:normalizeMoney(a.valor) || 0, origem:a.origem || null, obs:a.obs || null }));
+      if (aportesRows.length) { const { error } = await supabaseClient.from('aportes_metas').insert(aportesRows); if (error) throw error; }
+    }
+
+    if (opts.markMigration) {
+      const { error } = await supabaseClient.from('user_migrations').upsert({ user_id:userId, localstorage_migrated:true, migrated_at:new Date().toISOString() }, { onConflict:'user_id' });
+      if (error) throw error;
+    }
+    CLOUD_LAST_SYNC = new Date();
+  } finally {
+    CLOUD_SYNCING = false;
+  }
+}
+
+async function forceCloudSync() {
+  if (!ACTIVE_USER) return showToast('Faça login para sincronizar');
+  try {
+    await persistDataToCloud(DATA, ACTIVE_USER.id, { markMigration: true });
+    showToast('Dados sincronizados com a nuvem');
+    render();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao sincronizar com a nuvem');
+  }
+}
+
+async function reloadFromCloud() {
+  if (!ACTIVE_USER) return showToast('Faça login para carregar');
+  try {
+    const payload = await fetchUserCloudPayload(ACTIVE_USER.id);
+    if (!cloudHasAnyData(payload)) return showToast('Nenhum dado encontrado na nuvem');
+    DATA = cloudPayloadToData(payload);
+    saveData({ localOnly: true });
+    showToast('Dados carregados da nuvem');
+    render();
+    updateHeaderName();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao carregar da nuvem');
+  }
+}
+
 function authRedirectUrl() {
   return window.location.origin + window.location.pathname;
 }
@@ -2997,15 +3297,24 @@ function renderBlocked(user) {
   `);
 }
 
-function unlockAsUser(user, profile, createdNow = false) {
+async function unlockAsUser(user, profile, createdNow = false) {
   ACTIVE_USER = { id: user.id, email: normalizeEmail(user.email) };
   ACTIVE_PROFILE = profile || null;
-  DATA = loadData();
+  CLOUD_READY = false;
+  renderAuthFrame(`<div class="auth-title">Carregando seus dados</div><div class="auth-subtitle">Sincronizando com o Supabase...</div>`);
+  try {
+    DATA = await loadDataFromCloudOrLocal(user, profile);
+  } catch (e) {
+    console.error(e);
+    DATA = loadData();
+    showToast('Não foi possível carregar a nuvem. Usando dados locais.');
+  }
   if (!DATA.config) DATA.config = {};
   DATA.config.userEmail = ACTIVE_USER.email;
   if (!DATA.config.userName && ACTIVE_USER.email) DATA.config.userName = (profile?.nome || ACTIVE_USER.email.split('@')[0]);
   ensureMetasFormat();
-  saveData();
+  saveData({ localOnly: true });
+  CLOUD_READY = true;
   lockScreen.style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   document.getElementById('fab').style.display = 'flex';
