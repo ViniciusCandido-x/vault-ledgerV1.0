@@ -2054,24 +2054,30 @@ function renderConfig() {
   const userName = DATA.config.userName || '';
   const status = ACTIVE_PROFILE?.subscription_status || 'trial';
   const plan = ACTIVE_PROFILE?.subscription_plan || 'mensal';
-  const due = ACTIVE_PROFILE?.subscription_due_date ? fmtDate(ACTIVE_PROFILE.subscription_due_date) : 'Sem vencimento definido';
+  const dueRaw = ACTIVE_PROFILE?.subscription_due_date || '';
+  const due = dueRaw ? fmtDate(dueRaw) : 'Sem vencimento definido';
   const isAdm = ACTIVE_PROFILE?.is_admin ? 'Sim' : 'Não';
+  const blocked = !!ACTIVE_PROFILE?.blocked;
+  const statusClass = subscriptionTagClass(status, blocked);
   return `
     <div class="section">
       <div class="section-title" style="font-family:var(--fh)">Minha conta</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
+        <div class="card"><div class="card-label">Conta</div><div class="card-value" style="font-size:15px;word-break:break-word">${esc((ACTIVE_USER && ACTIVE_USER.email) || DATA.config.userEmail || '-')}</div></div>
+        <div class="card ${status === 'active' ? 'success' : status === 'past_due' ? 'warning' : blocked || status === 'blocked' || status === 'canceled' ? 'danger' : ''}"><div class="card-label">Assinatura</div><div class="card-value" style="font-size:17px">${subscriptionLabel(status)}</div></div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:var(--text-secondary);line-height:1.9;margin-bottom:12px">
+        <div><strong>Plano:</strong> ${planLabel(plan)}</div>
+        <div><strong>Status:</strong> <span class="tag ${statusClass}">${subscriptionLabel(status)}</span></div>
+        <div><strong>Vencimento:</strong> ${due}</div>
+        <div><strong>Administrador:</strong> ${isAdm}</div>
+      </div>
       <div class="form-group">
         <label class="form-label">Seu nome (aparece no app)</label>
         <input class="form-input" type="text" id="cfgUserName" value="${esc(userName)}"
           placeholder="Ex: Vinicius"
           onchange="DATA.config.userName=this.value.trim();saveData();updateHeaderName();">
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Exibido no cabeçalho e na tela de boas-vindas.</div>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:13px;color:var(--text-secondary);line-height:1.8">
-        <div><strong>E-mail:</strong> ${esc((ACTIVE_USER && ACTIVE_USER.email) || DATA.config.userEmail || '-')}</div>
-        <div><strong>Plano:</strong> ${esc(plan)}</div>
-        <div><strong>Status:</strong> ${subscriptionLabel(status)}</div>
-        <div><strong>Vencimento:</strong> ${due}</div>
-        <div><strong>Administrador:</strong> ${isAdm}</div>
       </div>
       <button class="btn btn-secondary" onclick="logout()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:12px">Sair da conta</button>
     </div>
@@ -2149,7 +2155,7 @@ function renderAdmin() {
         <div class="card danger"><div class="card-label">Restritos</div><div class="card-value">${bloqueados}</div></div>
         <div class="card purple"><div class="card-label">Admin</div><div class="card-value">${profiles.filter(p=>p.is_admin).length}</div></div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:8px">Controle manual de assinatura. Depois poderemos integrar Mercado Pago, Asaas, Stripe ou Pagar.me para atualizar esses status automaticamente.</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:8px">Controle manual de assinatura com opções padronizadas. Status e plano são salvos em formato técnico seguro no Supabase.</div>
     </div>
     <div class="section" style="padding:0;overflow:hidden">
       ${ADMIN_LOADING ? `<div class="empty"><div>Carregando assinantes...</div></div>` : profiles.length === 0 ? `<div class="empty"><div>Nenhum assinante encontrado.</div></div>` : `
@@ -2180,6 +2186,8 @@ function renderAdminProfileRow(p) {
   const status = p.subscription_status || 'trial';
   const plan = p.subscription_plan || 'mensal';
   const due = p.subscription_due_date || '';
+  const isSelf = ACTIVE_USER && ACTIVE_USER.id === id;
+  const blockedLocked = isSelf && p.is_admin;
   return `
     <tr>
       <td>
@@ -2188,17 +2196,22 @@ function renderAdminProfileRow(p) {
         <div style="font-size:10px;color:var(--text-muted)">Criado em ${p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}</div>
       </td>
       <td>
-        <select class="form-select" id="adm_status_${id}" style="min-width:150px">
+        <select class="form-select" id="adm_status_${id}" style="min-width:165px">
           ${['trial','active','past_due','blocked','canceled'].map(st => `<option value="${st}" ${status===st?'selected':''}>${subscriptionLabel(st)}</option>`).join('')}
         </select>
       </td>
-      <td><input class="form-input" id="adm_plan_${id}" value="${esc(plan)}" style="min-width:100px"></td>
+      <td>
+        <select class="form-select" id="adm_plan_${id}" style="min-width:130px">
+          ${['mensal','trimestral','anual'].map(pl => `<option value="${pl}" ${plan===pl?'selected':''}>${planLabel(pl)}</option>`).join('')}
+        </select>
+      </td>
       <td><input class="form-input" type="date" id="adm_due_${id}" value="${esc(due)}" style="min-width:140px"></td>
       <td>
-        <select class="form-select" id="adm_blocked_${id}" style="min-width:100px">
+        <select class="form-select" id="adm_blocked_${id}" style="min-width:100px" ${blockedLocked ? 'disabled title="Você não pode bloquear seu próprio usuário administrador"' : ''}>
           <option value="false" ${!p.blocked?'selected':''}>Não</option>
           <option value="true" ${p.blocked?'selected':''}>Sim</option>
         </select>
+        ${blockedLocked ? `<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Protegido</div>` : ''}
       </td>
       <td>
         <span class="tag ${p.is_admin?'tag-purple':'tag-muted'}">${p.is_admin?'Sim':'Não'}</span>
@@ -2232,9 +2245,18 @@ async function loadAdminProfiles(force = false) {
 async function adminSaveProfile(id) {
   if (!isAdminUser()) return showToast('Acesso restrito');
   const status = document.getElementById('adm_status_' + id)?.value || 'trial';
-  const plan = document.getElementById('adm_plan_' + id)?.value?.trim() || 'mensal';
+  const plan = document.getElementById('adm_plan_' + id)?.value || 'mensal';
   const dueRaw = document.getElementById('adm_due_' + id)?.value || null;
-  const blocked = (document.getElementById('adm_blocked_' + id)?.value || 'false') === 'true';
+  let blocked = (document.getElementById('adm_blocked_' + id)?.value || 'false') === 'true';
+  const target = (ADMIN_PROFILES || []).find(p => p.id === id);
+
+  if (ACTIVE_USER && id === ACTIVE_USER.id && target?.is_admin && (blocked || ['blocked','canceled'].includes(status))) {
+    blocked = false;
+    if (document.getElementById('adm_blocked_' + id)) document.getElementById('adm_blocked_' + id).value = 'false';
+    showToast('Proteção: seu usuário admin não pode ser bloqueado por aqui');
+    return;
+  }
+
   const payload = {
     subscription_status: status,
     subscription_plan: plan,
@@ -3224,6 +3246,18 @@ function subscriptionLabel(status) {
   return map[status] || status || 'Teste';
 }
 
+function subscriptionTagClass(status, blocked = false) {
+  if (blocked || status === 'blocked' || status === 'canceled') return 'tag-danger';
+  if (status === 'past_due') return 'tag-warning';
+  if (status === 'active') return 'tag-success';
+  return 'tag-accent';
+}
+
+function planLabel(plan) {
+  const map = { mensal:'Mensal', trimestral:'Trimestral', anual:'Anual' };
+  return map[plan] || plan || 'Mensal';
+}
+
 function getUserByEmail(email) {
   if (!ACTIVE_USER || normalizeEmail(email) !== normalizeEmail(ACTIVE_USER.email)) return null;
   return {
@@ -3412,15 +3446,17 @@ async function finishResetPassword() {
 }
 
 function renderBlocked(user) {
-  const status = subscriptionLabel(user.subscriptionStatus || user.subscription_status || 'blocked');
+  const rawStatus = user.subscriptionStatus || user.subscription_status || 'blocked';
+  const status = subscriptionLabel(rawStatus);
   renderAuthFrame(`
-    <div class="auth-title">Acesso temporariamente bloqueado</div>
-    <div class="auth-subtitle">Sua assinatura não está ativa no momento.</div>
+    <div class="auth-title">Acesso temporariamente suspenso</div>
+    <div class="auth-subtitle">Sua assinatura precisa ser regularizada para continuar usando o Vault Ledger.</div>
     <div class="auth-alert error">
       Conta: <strong>${esc(user.email)}</strong><br>
       Status: <strong>${status}</strong>
     </div>
-    <div class="auth-alert info">Regularize sua assinatura para liberar o acesso. Após a confirmação do pagamento, o administrador atualiza o status no painel comercial.</div>
+    <div class="auth-alert info">Após a confirmação do pagamento, o acesso será liberado pelo painel administrativo.</div>
+    <a class="btn btn-primary" style="width:100%;display:flex;justify-content:center;text-decoration:none;margin-bottom:8px" href="mailto:viniciuscandidosant@gmail.com?subject=Regularizar%20assinatura%20Vault%20Ledger">Falar com suporte</a>
     <button class="btn btn-secondary" style="width:100%" onclick="logout()">Sair da conta</button>
   `);
 }
