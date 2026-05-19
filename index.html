@@ -7,34 +7,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Finanças">
-<meta name="application-name" content="Finanças">
-<link rel="manifest" id="manifestLink">
+<meta name="apple-mobile-web-app-title" content="Vault Ledger">
+<meta name="application-name" content="Vault Ledger">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./favicon.png">
+<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
-<title>Finanças • Vinicius</title>
-<script>
-(function(){
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%232563EB'/><circle cx='256' cy='256' r='140' fill='none' stroke='white' stroke-width='28'/><path d='M256 176v16M256 320v16M196 236h76c17 0 30 12 30 28s-13 28-30 28h-40c-17 0-30 12-30 28s13 28 30 28h76' stroke='white' stroke-width='24' stroke-linecap='round'/></svg>`;
-  const iconUrl = `data:image/svg+xml,${svg}`;
-  const manifest = {
-    name: "Finanças · Vinicius",
-    short_name: "Finanças",
-    description: "App financeiro pessoal",
-    start_url: "./",
-    display: "standalone",
-    background_color: "#F8FAFC",
-    theme_color: "#2563EB",
-    orientation: "portrait",
-    icons: [
-      { src: iconUrl, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
-      { src: iconUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-  document.getElementById('manifestLink').href = URL.createObjectURL(blob);
-})();
-</script>
+<title>Vault Ledger • Gestão Financeira Inteligente</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -73,12 +53,22 @@
   #app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:1400px;margin:0 auto}
 
   /* HEADER */
-  .header{padding:14px 20px 12px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;box-shadow:0 1px 0 var(--border)}
-  .header-top{display:flex;justify-content:space-between;align-items:center}
-  .header-title{font-family:var(--fh);font-size:18px;font-weight:800;letter-spacing:-.3px;color:var(--text);display:flex;align-items:center;gap:8px}
+  .header{padding:12px 20px 10px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;box-shadow:0 1px 0 var(--border)}
+  .header-top{display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .brand-wrap{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand-icon{width:38px;height:38px;border-radius:12px;object-fit:cover;box-shadow:var(--sh);flex-shrink:0}
+  .header-title{font-family:var(--fh);font-size:20px;font-weight:800;letter-spacing:-.45px;color:#1E3A5F;display:flex;align-items:center;gap:8px;white-space:nowrap;line-height:1.05}
   .header-title svg{color:var(--accent)}
-  .header-subtitle{font-size:11px;color:var(--text-muted);margin-top:2px;font-weight:500;letter-spacing:.02em}
-  .header-actions{display:flex;gap:8px}
+  .header-subtitle{font-size:11px;color:var(--text-muted);margin-top:3px;font-weight:500;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+  .header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+  @media(max-width:560px){
+    .header{padding:10px 12px}
+    .header-top{align-items:center}
+    .brand-icon{width:34px;height:34px;border-radius:10px}
+    .header-title{font-size:18px}
+    .header-subtitle{max-width:150px}
+    .header-actions .icon-btn{padding:7px 10px;font-size:12px}
+  }
   .icon-btn{background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);padding:7px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;display:flex;align-items:center;gap:5px;font-family:var(--ff)}
   .icon-btn:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
 
@@ -291,7 +281,8 @@
   /* AUTH / LOGIN */
   .auth-card{width:100%;max-width:430px;background:#fff;border:1px solid var(--border);border-radius:22px;padding:22px;box-shadow:var(--sh-md)}
   .auth-logo-wrap{text-align:center;margin-bottom:22px}
-  .auth-logo{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;font-size:36px;background:linear-gradient(90deg,#1E293B 0%,#2563EB 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1.5px;line-height:1}
+  .auth-app-icon{width:68px;height:68px;border-radius:18px;object-fit:cover;box-shadow:var(--sh-md);margin:0 auto 12px;display:block}
+  .auth-logo{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;font-size:36px;color:#1E3A5F;letter-spacing:-1.5px;line-height:1}
   .auth-tagline{font-family:'Inter',sans-serif;font-weight:500;font-size:10.5px;color:#64748B;letter-spacing:3.2px;margin-top:7px;text-transform:uppercase}
   .auth-title{font-family:var(--fh);font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center}
   .auth-subtitle{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:18px;line-height:1.5}
@@ -317,21 +308,14 @@
 <div id="app" style="display:none">
   <header class="header">
     <div class="header-top">
-      <div>
-        <div class="header-title" style="background:linear-gradient(90deg,#1E293B 0%,#2563EB 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:20px">
-          Vault Ledger
+      <div class="brand-wrap">
+        <img class="brand-icon" src="./vault-ledger-icon-192.png" alt="Vault Ledger">
+        <div>
+          <div class="header-title">Vault Ledger</div>
+          <div class="header-subtitle" id="headerSubtitle">Olá, Vinicius</div>
         </div>
-        <div class="header-subtitle" id="headerSubtitle">Olá, Vinicius</div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" onclick="exportData()" title="Exportar dados">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Exportar
-        </button>
-        <button class="icon-btn" onclick="importData()" title="Importar dados">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Importar
-        </button>
         <button class="icon-btn" onclick="logout()" title="Sair da conta">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Sair
@@ -3331,6 +3315,7 @@ function getUserByEmail(email) {
 
 function authLogo() {
   return `<div class="auth-logo-wrap">
+    <img class="auth-app-icon" src="./vault-ledger-icon-192.png" alt="Vault Ledger">
     <div class="auth-logo">Vault Ledger</div>
     <div class="auth-tagline">GESTÃO FINANCEIRA INTELIGENTE</div>
   </div>`;
@@ -3370,7 +3355,6 @@ function renderLogin(email = '', message = '') {
       <button class="auth-link" onclick="renderSignupEmail()">Criar conta</button>
       <button class="auth-link" onclick="renderResetEmail()">Esqueci minha senha</button>
     </div>
-    <button id="lockImportBtn" class="auth-link" style="display:block;margin:16px auto 0;color:var(--text-muted)" onclick="document.getElementById('lockImportFile').click()">Importar dados de backup</button>
     <button data-install-app class="btn btn-secondary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:14px" onclick="installApp()">Instalar app</button>
   `);
   setTimeout(() => document.getElementById('loginEmail')?.focus(), 0);
@@ -3707,9 +3691,10 @@ async function installApp() {
   showModal(`
     <div class="modal-title">Instalar app</div>
     <div style="font-size:14px;color:var(--text-secondary);line-height:1.7">
-      <p><strong>Android/Chrome:</strong> toque no menu de três pontos do navegador e escolha <strong>Adicionar à tela inicial</strong> ou <strong>Instalar app</strong>.</p>
+      <p><strong>Android/Chrome:</strong> se o aviso automático não aparecer, toque no menu de três pontos do navegador e escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.</p>
       <p style="margin-top:10px"><strong>iPhone/Safari:</strong> toque no botão de compartilhar e escolha <strong>Adicionar à Tela de Início</strong>.</p>
       <p style="margin-top:10px"><strong>Computador:</strong> no Chrome ou Edge, procure o ícone de instalação na barra de endereço ou use o menu do navegador.</p>
+      <p style="margin-top:10px;font-size:12px;color:var(--text-muted)">Após subir esta versão, envie também os arquivos <strong>manifest.webmanifest</strong>, <strong>sw.js</strong> e os ícones junto com o <strong>index.html</strong>.</p>
     </div>
     <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">Entendi</button></div>
   `);
@@ -3730,26 +3715,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
-// Service Worker inline — necessário para instalação PWA real
+// Service Worker externo — necessário para instalação PWA real no GitHub Pages
 if ('serviceWorker' in navigator) {
-  const swCode = `
-    const CACHE = 'financas-v1';
-    self.addEventListener('install', e => {
-      e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./'])));
-      self.skipWaiting();
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch((err) => {
+      console.warn('Service Worker não registrado:', err);
     });
-    self.addEventListener('activate', e => {
-      e.waitUntil(clients.claim());
-    });
-    self.addEventListener('fetch', e => {
-      e.respondWith(
-        caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./')))
-      );
-    });
-  `;
-  const blob = new Blob([swCode], {type:'application/javascript'});
-  const swUrl = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl, {scope: './'}).catch(()=>{});
+  });
 }
 </script>
 </body>
