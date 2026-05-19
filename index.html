@@ -2053,6 +2053,22 @@ function renderChatMessages(loading) {
 // ============================================================
 // PAGE: CONFIG
 // ============================================================
+function renderDueNotice(profile) {
+  if (!profile || profile.is_admin || !profile.subscription_due_date) return '';
+  const days = daysUntilDate(profile.subscription_due_date);
+  if (days === null) return '';
+  if (days < 0) {
+    return `<div class="auth-alert error" style="display:block;margin-bottom:12px">Sua assinatura venceu em ${fmtDate(profile.subscription_due_date)}. Regularize para evitar bloqueio.</div>`;
+  }
+  if (days === 0) {
+    return `<div class="auth-alert warning" style="display:block;margin-bottom:12px;background:var(--warning-light);color:var(--warning)">Sua assinatura vence hoje.</div>`;
+  }
+  if (days <= 5) {
+    return `<div class="auth-alert info" style="display:block;margin-bottom:12px">Sua assinatura vence em ${days} dia${days === 1 ? '' : 's'}.</div>`;
+  }
+  return '';
+}
+
 function renderConfig() {
   const userName = DATA.config.userName || '';
   const status = ACTIVE_PROFILE?.subscription_status || 'trial';
@@ -2075,6 +2091,7 @@ function renderConfig() {
         <div><strong>Vencimento:</strong> ${due}</div>
         <div><strong>Administrador:</strong> ${isAdm}</div>
       </div>
+      ${renderDueNotice(ACTIVE_PROFILE)}
       <div class="form-group">
         <label class="form-label">Seu nome (aparece no app)</label>
         <input class="form-input" type="text" id="cfgUserName" value="${esc(userName)}"
@@ -2099,6 +2116,12 @@ function renderConfig() {
           onchange="DATA.config.dataCorte = this.value; saveData(); render();">
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Data em que o saldo inicial foi medido.</div>
       </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" style="font-family:var(--fh)">Instalação do app</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px">Instale o Gestão Financeira Inteligente no celular ou computador para abrir como aplicativo, sem precisar entrar pelo navegador.</div>
+      <button data-install-app class="btn btn-primary" onclick="installApp()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Instalar app</button>
     </div>
 
     <div class="section">
@@ -2969,6 +2992,8 @@ let ACTIVE_PROFILE = null;
 
 const SUPABASE_URL = 'https://gcdhgpzslnwvihywzbak.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjZGhncHpzbG53dmloeXd6YmFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMTMzNjQsImV4cCI6MjA5NDc4OTM2NH0.BmRwJMDvkHw5o75-HH38WZ_DE3AusaiKs8mJUY7vCFg';
+const SUPPORT_EMAIL = 'viniciuscandidosant@gmail.com';
+const SUPPORT_WHATSAPP = '5527995243233'; // WhatsApp de suporte: +55 27 99524-3233
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
@@ -3239,9 +3264,40 @@ function authRedirectUrl() {
   return window.location.origin + window.location.pathname;
 }
 
+function isPastDate(dateIso) {
+  if (!dateIso) return false;
+  const d = parseDate(dateIso);
+  if (!d) return false;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  return d < hoje;
+}
+
+function daysUntilDate(dateIso) {
+  if (!dateIso) return null;
+  const d = parseDate(dateIso);
+  if (!d) return null;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  return Math.ceil((d - hoje) / 86400000);
+}
+
+function getAccessState(userOrProfile) {
+  const status = userOrProfile?.subscriptionStatus || userOrProfile?.subscription_status || 'blocked';
+  const dueDate = userOrProfile?.dueDate || userOrProfile?.subscription_due_date || null;
+  const isAdmin = !!(userOrProfile?.isAdmin || userOrProfile?.is_admin);
+
+  if (userOrProfile?.blocked) return { allowed:false, status, reason:'blocked', message:'Seu acesso está bloqueado. Regularize sua assinatura para continuar.' };
+  if (status === 'blocked') return { allowed:false, status, reason:'blocked', message:'Sua conta está aguardando liberação após confirmação do pagamento.' };
+  if (status === 'canceled') return { allowed:false, status, reason:'canceled', message:'Sua assinatura está cancelada. Fale com o suporte para reativar.' };
+  if (status === 'past_due') return { allowed:false, status, reason:'past_due', message:'Existe uma pendência de pagamento na sua assinatura.' };
+  if (!isAdmin && isPastDate(dueDate)) return { allowed:false, status:'past_due', reason:'expired', message:'O vencimento da sua assinatura expirou. Regularize o pagamento para continuar.' };
+  if (['trial', 'active'].includes(status) || isAdmin) return { allowed:true, status, reason:'ok', message:'' };
+  return { allowed:false, status, reason:'unknown', message:'Não foi possível validar sua assinatura. Fale com o suporte.' };
+}
+
 function isAccessAllowed(userOrProfile) {
-  const status = userOrProfile?.subscriptionStatus || userOrProfile?.subscription_status || 'trial';
-  return !userOrProfile?.blocked && ['trial', 'active'].includes(status);
+  return getAccessState(userOrProfile).allowed;
 }
 
 function subscriptionLabel(status) {
@@ -3292,6 +3348,7 @@ function renderAuthFrame(inner) {
     <div style="position:absolute;bottom:max(20px,env(safe-area-inset-bottom));text-align:center">
       <div style="font-family:'Inter',sans-serif;font-size:10px;color:var(--text-muted);letter-spacing:.3px">Desenvolvido por <span style="color:var(--text-secondary);font-weight:500">Vinicius Candido dos Santos</span> · 2026</div>
     </div>`;
+  updateInstallButtons();
 }
 
 function renderLogin(email = '', message = '') {
@@ -3314,6 +3371,7 @@ function renderLogin(email = '', message = '') {
       <button class="auth-link" onclick="renderResetEmail()">Esqueci minha senha</button>
     </div>
     <button id="lockImportBtn" class="auth-link" style="display:block;margin:16px auto 0;color:var(--text-muted)" onclick="document.getElementById('lockImportFile').click()">Importar dados de backup</button>
+    <button data-install-app class="btn btn-secondary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:14px" onclick="installApp()">Instalar app</button>
   `);
   setTimeout(() => document.getElementById('loginEmail')?.focus(), 0);
 }
@@ -3334,7 +3392,7 @@ async function getProfile(user) {
   if (error && error.code === 'PGRST116') {
     const inserted = await supabaseClient
       .from('profiles')
-      .insert({ id: user.id, email: user.email, subscription_status: 'trial', subscription_plan: 'mensal', blocked: false })
+      .insert({ id: user.id, email: user.email, subscription_status: 'blocked', subscription_plan: 'mensal', blocked: true, is_admin: false })
       .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin')
       .single();
     data = inserted.data;
@@ -3355,7 +3413,7 @@ async function loginWithPassword() {
 
   try {
     const profile = await getProfile(data.user);
-    if (!isAccessAllowed(profile)) return renderBlocked({ email: data.user.email, subscriptionStatus: profile.subscription_status, blocked: profile.blocked });
+    if (!isAccessAllowed(profile)) return renderBlocked({ email: data.user.email, ...profile });
     unlockAsUser(data.user, profile);
   } catch (e) {
     console.error(e);
@@ -3402,9 +3460,10 @@ async function finishSignup() {
 
   if (data.session && data.user) {
     const profile = await getProfile(data.user);
+    if (!isAccessAllowed(profile)) return renderBlocked({ email: data.user.email, ...profile, justCreated: true });
     return unlockAsUser(data.user, profile, true);
   }
-  renderLogin(email, 'Conta criada. Confira seu e-mail para confirmar o acesso antes de entrar.');
+  renderLogin(email, 'Conta criada. Confira seu e-mail para confirmar o acesso. Após a confirmação do pagamento, seu acesso será liberado.');
 }
 
 function renderResetEmail() {
@@ -3448,21 +3507,47 @@ async function finishResetPassword() {
   renderLogin('', 'Senha alterada com sucesso. Entre novamente.');
 }
 
+function supportUrl(email = '') {
+  const accountText = email ? `
+
+E-mail da conta: ${email}` : '';
+  const message = `Olá, Vinicius! Estou entrando em contato pelo Gestão Financeira Inteligente. Criei uma conta ou preciso regularizar/liberar minha assinatura.${accountText}
+
+Pode me ajudar com a liberação do acesso?`;
+  const subject = encodeURIComponent('Liberação de assinatura — Gestão Financeira Inteligente');
+  const body = encodeURIComponent(message);
+  if (SUPPORT_WHATSAPP) {
+    const text = encodeURIComponent(message);
+    return `https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`;
+  }
+  return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+}
+
 function renderBlocked(user) {
-  const rawStatus = user.subscriptionStatus || user.subscription_status || 'blocked';
+  const state = getAccessState(user);
+  const rawStatus = state.status || user.subscriptionStatus || user.subscription_status || 'blocked';
   const status = subscriptionLabel(rawStatus);
+  const dueDate = user.dueDate || user.subscription_due_date || null;
+  const dueText = dueDate ? fmtDate(dueDate) : 'Não definido';
+  const title = user.justCreated ? 'Conta criada. Aguardando liberação' : 'Acesso temporariamente suspenso';
+  const subtitle = user.justCreated
+    ? 'Recebemos seu cadastro. Após a confirmação do pagamento, seu acesso será liberado.'
+    : 'Sua assinatura precisa ser regularizada para continuar usando o Vault Ledger.';
+  const message = state.message || 'Fale com o suporte para regularizar sua assinatura.';
   renderAuthFrame(`
-    <div class="auth-title">Acesso temporariamente suspenso</div>
-    <div class="auth-subtitle">Sua assinatura precisa ser regularizada para continuar usando o Vault Ledger.</div>
-    <div class="auth-alert error">
-      Conta: <strong>${esc(user.email)}</strong><br>
-      Status: <strong>${status}</strong>
+    <div class="auth-title">${title}</div>
+    <div class="auth-subtitle">${subtitle}</div>
+    <div class="auth-alert error" style="text-align:left;line-height:1.8">
+      <div><strong>Conta:</strong> ${esc(user.email || '-')}</div>
+      <div><strong>Status:</strong> ${status}</div>
+      <div><strong>Vencimento:</strong> ${dueText}</div>
     </div>
-    <div class="auth-alert info">Após a confirmação do pagamento, o acesso será liberado pelo painel administrativo.</div>
-    <a class="btn btn-primary" style="width:100%;display:flex;justify-content:center;text-decoration:none;margin-bottom:8px" href="mailto:viniciuscandidosant@gmail.com?subject=Regularizar%20assinatura%20Vault%20Ledger">Falar com suporte</a>
+    <div class="auth-alert info">${message}</div>
+    <a class="btn btn-primary" style="width:100%;display:flex;justify-content:center;text-decoration:none;margin-bottom:8px" href="${supportUrl(user.email)}" target="_blank" rel="noopener">Falar com suporte</a>
     <button class="btn btn-secondary" style="width:100%" onclick="logout()">Sair da conta</button>
   `);
 }
+
 async function unlockAsUser(user, profile, createdNow = false) {
   ACTIVE_USER = { id: user.id, email: normalizeEmail(user.email) };
   ACTIVE_PROFILE = profile || null;
@@ -3507,7 +3592,7 @@ async function initLockScreen() {
   if (data.session?.user) {
     try {
       const profile = await getProfile(data.session.user);
-      if (!isAccessAllowed(profile)) return renderBlocked({ email: data.session.user.email, subscriptionStatus: profile.subscription_status, blocked: profile.blocked });
+      if (!isAccessAllowed(profile)) return renderBlocked({ email: data.session.user.email, ...profile });
       return unlockAsUser(data.session.user, profile);
     } catch (e) {
       console.error(e);
@@ -3573,6 +3658,62 @@ lockImportFile.addEventListener('change', (event) => {
   reader.readAsText(file);
   event.target.value = '';
 });
+
+
+// ============================================================
+// INSTALAÇÃO PWA
+// ============================================================
+let deferredInstallPrompt = null;
+let appWasInstalled = false;
+
+function isRunningAsInstalledApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function updateInstallButtons() {
+  const installed = isRunningAsInstalledApp() || appWasInstalled;
+  document.querySelectorAll('[data-install-app]').forEach(btn => {
+    btn.style.display = installed ? 'none' : 'flex';
+  });
+}
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallButtons();
+});
+
+window.addEventListener('appinstalled', () => {
+  appWasInstalled = true;
+  deferredInstallPrompt = null;
+  updateInstallButtons();
+  showToast('App instalado com sucesso');
+});
+
+async function installApp() {
+  if (isRunningAsInstalledApp()) {
+    showToast('O app já está instalado');
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice.catch(() => null);
+    deferredInstallPrompt = null;
+    updateInstallButtons();
+    return;
+  }
+
+  showModal(`
+    <div class="modal-title">Instalar app</div>
+    <div style="font-size:14px;color:var(--text-secondary);line-height:1.7">
+      <p><strong>Android/Chrome:</strong> toque no menu de três pontos do navegador e escolha <strong>Adicionar à tela inicial</strong> ou <strong>Instalar app</strong>.</p>
+      <p style="margin-top:10px"><strong>iPhone/Safari:</strong> toque no botão de compartilhar e escolha <strong>Adicionar à Tela de Início</strong>.</p>
+      <p style="margin-top:10px"><strong>Computador:</strong> no Chrome ou Edge, procure o ícone de instalação na barra de endereço ou use o menu do navegador.</p>
+    </div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">Entendi</button></div>
+  `);
+}
 
 initLockScreen();
 
