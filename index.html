@@ -421,6 +421,24 @@
   .landing-panel{backdrop-filter:blur(8px)}
   .landing-headline{color:#14233A}
 
+
+  .admin-history-list{display:flex;flex-direction:column;gap:8px}
+  .admin-history-item{border:1px solid var(--border);border-radius:12px;background:#fff;padding:11px 12px;box-shadow:var(--sh)}
+  .admin-history-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .admin-history-title{font-weight:800;color:var(--text);font-size:13px;word-break:break-word}
+  .admin-history-meta{font-size:11px;color:var(--text-muted);line-height:1.45;margin-top:3px}
+  .admin-history-change{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--text-secondary)}
+  .admin-history-arrow{color:var(--text-muted);font-weight:800}
+  .interest-summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+  @media(min-width:760px){.interest-summary-grid{grid-template-columns:repeat(4,1fr)}}
+  .interest-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .interest-card-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.7px;font-weight:800;margin-bottom:5px}
+  .interest-card-value{font-family:var(--fh);font-size:18px;font-weight:800;color:var(--text)}
+  .mini-table{width:100%;border-collapse:collapse;font-size:12px}
+  .mini-table th{text-align:left;padding:8px 6px;color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+  .mini-table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+  .mini-table tr:last-child td{border-bottom:none}
+
 </style>
 </head>
 <body>
@@ -836,6 +854,108 @@ function calcInvestimentos() {
  });
  return { total: aportes - resgates, rendimentos };
 }
+
+
+function loanInterestAmount(e) {
+  return (Number(e?.valor) || 0) * (Number(e?.juros) || 0);
+}
+
+function isDateInMonth(dateStr, month, year) {
+  const d = parseDate(dateStr);
+  return !!d && d.getMonth() + 1 === month && d.getFullYear() === year;
+}
+
+function getLoanInterestDetails(month, year) {
+  const received = [];
+  const receivable = [];
+  (DATA.emprestimos || []).forEach(e => {
+    const juros = loanInterestAmount(e);
+    if (juros <= 0) return;
+    if (e.dataPgto && isDateInMonth(e.dataPgto, month, year)) {
+      received.push({ ...e, jurosValor: juros, baseDate: e.dataPgto });
+    } else if (!e.dataPgto && isDateInMonth(e.dataAcordada, month, year)) {
+      receivable.push({ ...e, jurosValor: juros, baseDate: e.dataAcordada });
+    }
+  });
+  return {
+    received,
+    receivable,
+    receivedTotal: received.reduce((s,e) => s + e.jurosValor, 0),
+    receivableTotal: receivable.reduce((s,e) => s + e.jurosValor, 0)
+  };
+}
+
+function getLoanInterestYearData(year) {
+  return MESES_NOMES.map((mes, idx) => {
+    const mm = idx + 1;
+    const details = getLoanInterestDetails(mm, year);
+    const receitaJuros = calcReceitasMes(mm, year, 'Juros');
+    return {
+      mes,
+      received: details.receivedTotal,
+      receivable: details.receivableTotal,
+      receitaJuros,
+      totalMonitorado: details.receivedTotal + details.receivableTotal
+    };
+  });
+}
+
+function renderInterestMonthlyPanel(month, year) {
+  const details = getLoanInterestDetails(month, year);
+  const yearData = getLoanInterestYearData(year);
+  const receitaJurosMes = calcReceitasMes(month, year, 'Juros');
+  const totalAnoRecebido = yearData.reduce((s,d)=>s+d.received,0);
+  const totalAnoAReceber = yearData.reduce((s,d)=>s+d.receivable,0);
+  const maxVal = Math.max(...yearData.map(d => Math.max(d.received, d.receivable)), 100);
+  const chart = renderBarChart(
+    yearData.map(d => ({ label: d.mes.substring(0,3), values: [d.received, d.receivable] })),
+    ['var(--success)', 'var(--warning)'],
+    maxVal,
+    { large: false }
+  );
+
+  const rowList = [...details.received.map(e => ({...e, tipo:'Recebido'})), ...details.receivable.map(e => ({...e, tipo:'A receber'}))]
+    .sort((a,b)=>(a.baseDate||'').localeCompare(b.baseDate||''));
+
+  return `
+    <div class="section">
+      <div class="section-title">Juros por mês — ${MESES_NOMES[month-1]}/${year}</div>
+      <div class="interest-summary-grid">
+        <div class="interest-card"><div class="interest-card-label">Recebidos no mês</div><div class="interest-card-value" style="color:var(--success)">${fmt(details.receivedTotal)}</div></div>
+        <div class="interest-card"><div class="interest-card-label">A receber no mês</div><div class="interest-card-value" style="color:var(--warning)">${fmt(details.receivableTotal)}</div></div>
+        <div class="interest-card"><div class="interest-card-label">Receitas categoria Juros</div><div class="interest-card-value" style="color:var(--accent)">${fmt(receitaJurosMes)}</div></div>
+        <div class="interest-card"><div class="interest-card-label">Total monitorado</div><div class="interest-card-value">${fmt(details.receivedTotal + details.receivableTotal)}</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:12px">
+        Recebidos usam a data de pagamento do empréstimo. A receber usa a data acordada dos empréstimos ainda em aberto.
+      </div>
+      ${rowList.length === 0 ? `<div class="empty" style="padding:20px">Nenhum juro recebido ou a receber neste mês.</div>` : `
+        <div class="table-wrapper">
+          <table class="mini-table">
+            <thead><tr><th>Cliente</th><th>Tipo</th><th>Data</th><th class="num">Capital</th><th class="num">Juros</th></tr></thead>
+            <tbody>
+              ${rowList.map(e => `<tr>
+                <td><strong>${esc(e.nome || '-')}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(e.origem || '-')}</div></td>
+                <td><span class="tag ${e.tipo === 'Recebido' ? 'tag-success' : 'tag-warning'}">${e.tipo}</span></td>
+                <td>${fmtDate(e.baseDate)}</td>
+                <td class="num">${fmt(e.valor || 0)}</td>
+                <td class="num" style="color:${e.tipo === 'Recebido' ? 'var(--success)' : 'var(--warning)'}">${fmt(e.jurosValor)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`}
+    </div>
+    <div class="section">
+      <div class="section-title">Evolução dos juros — ${year}</div>
+      ${chart}
+      <div class="chart-legend"><span class="legend-dot success">Recebidos</span><span class="legend-dot warning">A receber</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--text-secondary)">
+        <strong>Total recebido no ano: ${fmt(totalAnoRecebido)}</strong>
+        <strong>Total a receber no ano: ${fmt(totalAnoAReceber)}</strong>
+      </div>
+    </div>`;
+}
+
 
 function calcPatrimonio() {
  return calcSaldoAtual() + calcCapitalProprioRodando() + calcInvestimentos().total + (calcMetaAcumulada());
@@ -1671,6 +1791,7 @@ function renderAnalise() {
   const despesasPend = calcDespesasPendentes(m, ano);
   const resultadoMes = receitasMes - despesasPagas;
   const jurosMes = calcReceitasMes(m, ano, 'Juros');
+  const jurosEmpMes = getLoanInterestDetails(m, ano);
   const recebimentosPendentes = DATA.receitas.filter(r => !r.dataReceb && r.dataPrev && parseDate(r.dataPrev)?.getMonth()+1 === m && parseDate(r.dataPrev)?.getFullYear() === ano).reduce((s,r)=>s+(r.valor||0),0);
   const emprestimosAbertos = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago').reduce((s,e)=>s+(e.valor||0),0);
   const atrasados = DATA.emprestimos.filter(e => getStatus(e) === 'Atrasado').length;
@@ -1736,7 +1857,8 @@ function renderAnalise() {
 
     <div class="metric-grid">
       <div class="metric-card"><div class="metric-label">Receitas pendentes</div><div class="metric-value">${fmt(recebimentosPendentes)}</div><div class="metric-note">Previstas e não recebidas</div></div>
-      <div class="metric-card success"><div class="metric-label">Juros recebidos</div><div class="metric-value">${fmt(jurosMes)}</div><div class="metric-note">Receitas da categoria Juros</div></div>
+      <div class="metric-card success"><div class="metric-label">Juros recebidos</div><div class="metric-value">${fmt(jurosEmpMes.receivedTotal || jurosMes)}</div><div class="metric-note">Empréstimos pagos no mês</div></div>
+      <div class="metric-card warning"><div class="metric-label">Juros a receber</div><div class="metric-value">${fmt(jurosEmpMes.receivableTotal)}</div><div class="metric-note">Empréstimos em aberto no mês</div></div>
       <div class="metric-card purple"><div class="metric-label">Em aberto</div><div class="metric-value">${fmt(emprestimosAbertos)}</div><div class="metric-note">Registros financeiros ainda não pagos</div></div>
       <div class="metric-card warning"><div class="metric-label">Reservado em metas</div><div class="metric-value">${fmt(metasReservado)}</div><div class="metric-note">Total aportado nas metas</div></div>
     </div>
@@ -1765,11 +1887,15 @@ function renderAnalise() {
       </div>
     </div>
 
+    <div class="analysis-grid-wide">
+      ${renderInterestMonthlyPanel(m, ano)}
+    </div>
+
     <div class="section">
       <div class="section-title">Detalhamento anual</div>
       <div class="table-wrapper">
         <table class="table">
-          <thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas pagas</th><th class="num">Pendentes</th><th class="num">Resultado</th><th class="num">Juros</th></tr></thead>
+          <thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas pagas</th><th class="num">Pendentes</th><th class="num">Resultado</th><th class="num">Juros recebidos</th><th class="num">Juros a receber</th></tr></thead>
           <tbody>
             ${dadosAno.map(d => `<tr>
               <td><strong>${d.mes.substring(0,3)}</strong></td>
@@ -1777,9 +1903,10 @@ function renderAnalise() {
               <td class="num">${fmt(d.despPagas)}</td>
               <td class="num">${fmt(d.despPend)}</td>
               <td class="num" style="color:${d.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(d.resultado)}</td>
-              <td class="num" style="color:var(--success)">${fmt(d.juros)}</td>
+              <td class="num" style="color:var(--success)">${fmt(getLoanInterestDetails(MESES_NOMES.indexOf(d.mes)+1, ano).receivedTotal || d.juros)}</td>
+              <td class="num" style="color:var(--warning)">${fmt(getLoanInterestDetails(MESES_NOMES.indexOf(d.mes)+1, ano).receivableTotal)}</td>
             </tr>`).join('')}
-            <tr style="background:var(--bg-elevated);font-weight:700"><td>Total</td><td class="num">${fmt(totais.rec)}</td><td class="num">${fmt(totais.desp)}</td><td class="num">${fmt(totais.despTotal - totais.desp)}</td><td class="num" style="color:${totais.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(totais.resultado)}</td><td class="num" style="color:var(--success)">${fmt(totais.juros)}</td></tr>
+            <tr style="background:var(--bg-elevated);font-weight:700"><td>Total</td><td class="num">${fmt(totais.rec)}</td><td class="num">${fmt(totais.desp)}</td><td class="num">${fmt(totais.despTotal - totais.desp)}</td><td class="num" style="color:${totais.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(totais.resultado)}</td><td class="num" style="color:var(--success)">${fmt(getLoanInterestYearData(ano).reduce((s,d)=>s+d.received,0) || totais.juros)}</td><td class="num" style="color:var(--warning)">${fmt(getLoanInterestYearData(ano).reduce((s,d)=>s+d.receivable,0))}</td></tr>
           </tbody>
         </table>
       </div>
@@ -2387,6 +2514,8 @@ function renderConfig() {
 let ADMIN_PROFILES = null;
 let ADMIN_LOADING = false;
 let ADMIN_FILTER = { q:'', status:'todos' };
+let ADMIN_AUDIT_LOGS = null;
+let ADMIN_AUDIT_LOADING = false;
 let ADMIN_REQUEST_SEQ = 0;
 const ADMIN_SAVE_LOCKS = new Set();
 
@@ -2488,8 +2617,73 @@ function renderAdmin() {
           ${filtered.map(p => renderAdminProfileRow(p)).join('')}
         </div>`}
     </div>
+
+    ${renderAdminHistorySection()}
   `;
 }
+
+
+function renderAdminHistorySection() {
+  if (ADMIN_AUDIT_LOGS === null && !ADMIN_AUDIT_LOADING) setTimeout(() => loadAdminAuditLogs(false), 0);
+  const logs = Array.isArray(ADMIN_AUDIT_LOGS) ? ADMIN_AUDIT_LOGS : [];
+  return `
+    <div class="section">
+      <div class="section-title" style="font-family:var(--fh)">
+        Histórico administrativo
+        <button class="filter-btn" onclick="loadAdminAuditLogs(true)">Atualizar histórico</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:12px">
+        Registro das alterações comerciais feitas no painel de assinantes.
+      </div>
+      ${ADMIN_AUDIT_LOADING && logs.length === 0 ? `<div class="empty" style="padding:20px">Carregando histórico...</div>` :
+        logs.length === 0 ? `<div class="empty" style="padding:20px">Nenhuma alteração administrativa registrada ainda.</div>` :
+        `<div class="admin-history-list">${logs.slice(0, 30).map(renderAdminAuditItem).join('')}</div>`}
+    </div>`;
+}
+
+function renderAdminAuditItem(log) {
+  const created = log.created_at ? new Date(log.created_at).toLocaleString('pt-BR') : '-';
+  const oldStatus = subscriptionLabel(log.old_status || '-');
+  const newStatus = subscriptionLabel(log.new_status || '-');
+  const oldBlocked = log.old_blocked ? 'Bloqueado' : 'Liberado';
+  const newBlocked = log.new_blocked ? 'Bloqueado' : 'Liberado';
+  return `
+    <div class="admin-history-item">
+      <div class="admin-history-top">
+        <div>
+          <div class="admin-history-title">${esc(log.target_email || log.target_user_id || 'Usuário')}</div>
+          <div class="admin-history-meta">Alterado por ${esc(log.admin_email || 'admin')} em ${created}</div>
+        </div>
+        <span class="status-pill ${log.new_blocked || ['blocked','canceled'].includes(log.new_status) ? 'danger' : log.new_status === 'past_due' ? 'warning' : 'success'}">${subscriptionLabel(log.new_status || '')}</span>
+      </div>
+      <div class="admin-history-change">
+        <span>${oldStatus} / ${oldBlocked}</span>
+        <span class="admin-history-arrow">→</span>
+        <strong>${newStatus} / ${newBlocked}</strong>
+      </div>
+      <div class="admin-history-meta">Vencimento: ${log.old_due_date ? fmtDate(log.old_due_date) : '-'} → ${log.new_due_date ? fmtDate(log.new_due_date) : '-'}</div>
+    </div>`;
+}
+
+async function loadAdminAuditLogs(force = false) {
+  if (!isAdminUser()) return;
+  if (ADMIN_AUDIT_LOADING && !force) return;
+  ADMIN_AUDIT_LOADING = true;
+  if (!ADMIN_AUDIT_LOGS) renderPage();
+  try {
+    const { data, error } = await supabaseClient.rpc('admin_list_audit_logs', { p_limit: 50 });
+    if (error) throw error;
+    ADMIN_AUDIT_LOGS = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Erro ao carregar histórico administrativo:', error);
+    if (!Array.isArray(ADMIN_AUDIT_LOGS)) ADMIN_AUDIT_LOGS = [];
+    showToast('Histórico indisponível. Rode o SQL atualizado no Supabase.');
+  } finally {
+    ADMIN_AUDIT_LOADING = false;
+    renderPage();
+  }
+}
+
 
 function renderAdminProfileRow(p) {
   const id = p.id;
@@ -2564,6 +2758,7 @@ async function loadAdminProfiles(force = false) {
     if (requestId !== ADMIN_REQUEST_SEQ) return;
 
     ADMIN_PROFILES = Array.isArray(data) ? data : [];
+    if (ADMIN_AUDIT_LOGS === null) setTimeout(() => loadAdminAuditLogs(false), 0);
   } catch (error) {
     console.error('Erro ao carregar assinantes:', error);
     showToast('Falha ao carregar assinantes. Mantive os dados atuais.');
@@ -2653,6 +2848,8 @@ async function adminSaveProfile(id) {
       ACTIVE_PROFILE = { ...ACTIVE_PROFILE, ...payload };
     }
 
+    ADMIN_AUDIT_LOGS = null;
+    setTimeout(() => loadAdminAuditLogs(true), 0);
     showToast('Assinante atualizado com sucesso');
     renderPage();
   } catch (error) {
