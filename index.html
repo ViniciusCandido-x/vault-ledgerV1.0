@@ -2357,6 +2357,8 @@ function renderConfig() {
 let ADMIN_PROFILES = null;
 let ADMIN_LOADING = false;
 let ADMIN_FILTER = { q:'', status:'todos' };
+let ADMIN_REQUEST_SEQ = 0;
+const ADMIN_SAVE_LOCKS = new Set();
 
 function isAdminUser() {
  return !!ACTIVE_PROFILE?.is_admin;
@@ -2516,28 +2518,33 @@ function renderAdminProfileRow(p) {
 }
 
 async function loadAdminProfiles(force = false) {
- if (!isAdminUser()) return;
- if (ADMIN_LOADING && !force) return;
- const hadData = Array.isArray(ADMIN_PROFILES) && ADMIN_PROFILES.length > 0;
- ADMIN_LOADING = true;
- if (!hadData) render();
- try {
-   const { data, error } = await supabaseClient
-    .from('profiles')
-    .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin,created_at')
-    .order('created_at', { ascending: false });
-   if (error) throw error;
-   ADMIN_PROFILES = data || [];
- } catch (error) {
-   console.error(error);
-   showToast('Não foi possível atualizar assinantes. Mantive a lista atual.');
-   if (!ADMIN_PROFILES) ADMIN_PROFILES = [];
- } finally {
-   ADMIN_LOADING = false;
-   render();
- }
-}
+  if (!isAdminUser()) return;
+  if (ADMIN_LOADING && !force) return;
 
+  const requestId = ++ADMIN_REQUEST_SEQ;
+  const hadData = Array.isArray(ADMIN_PROFILES) && ADMIN_PROFILES.length > 0;
+  ADMIN_LOADING = true;
+  if (!hadData) renderPage();
+
+  try {
+    // Lista assinantes via RPC segura. Isso evita falhas de RLS no front-end
+    // e impede que a lista fique parcial após alterar status/bloqueio.
+    const { data, error } = await supabaseClient.rpc('admin_list_profiles');
+    if (error) throw error;
+    if (requestId !== ADMIN_REQUEST_SEQ) return;
+
+    ADMIN_PROFILES = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Erro ao carregar assinantes:', error);
+    showToast('Falha ao carregar assinantes. Mantive os dados atuais.');
+    if (!Array.isArray(ADMIN_PROFILES)) ADMIN_PROFILES = [];
+  } finally {
+    if (requestId === ADMIN_REQUEST_SEQ) {
+      ADMIN_LOADING = false;
+      renderPage();
+    }
+  }
+}
 
 async function adminQuickSet(id, status, blocked, addDays = null) {
   if (!isAdminUser()) return showToast('Acesso restrito');
@@ -2568,10 +2575,10 @@ function highlightAdminQuickAction(id, status, blocked) {
 
 async function adminSaveProfile(id) {
   if (!isAdminUser()) return showToast('Acesso restrito');
+  if (ADMIN_SAVE_LOCKS.has(id)) return;
+
   const card = document.getElementById('admin_card_' + id);
-  card?.classList.add('is-updating');
   const status = document.getElementById('adm_status_' + id)?.value || 'blocked';
-  const plan = 'mensal';
   const dueRaw = document.getElementById('adm_due_' + id)?.value || null;
   let blocked = (document.getElementById('adm_blocked_' + id)?.value || 'false') === 'true';
   const target = (ADMIN_PROFILES || []).find(p => p.id === id);
@@ -2579,24 +2586,52 @@ async function adminSaveProfile(id) {
   if (ACTIVE_USER && id === ACTIVE_USER.id && target?.is_admin && (blocked || ['blocked','canceled'].includes(status))) {
     blocked = false;
     if (document.getElementById('adm_blocked_' + id)) document.getElementById('adm_blocked_' + id).value = 'false';
-    card?.classList.remove('is-updating');
     showToast('Proteção: seu usuário admin não pode ser bloqueado por aqui');
     return;
   }
 
-  const payload = { subscription_status: status, subscription_plan: plan, subscription_due_date: dueRaw || null, blocked };
-  const { error } = await supabaseClient.from('profiles').update(payload).eq('id', id);
-  if (error) {
-    console.error(error);
+  ADMIN_SAVE_LOCKS.add(id);
+  card?.classList.add('is-updating');
+
+  try {
+    // Atualização via RPC segura. A função retorna a linha atualizada,
+    // então não precisamos recarregar toda a lista nem corremos risco de sumir usuários.
+    const { data, error } = await supabaseClient.rpc('admin_update_profile', {
+      p_user_id: id,
+      p_status: status,
+      p_due_date: dueRaw || null,
+      p_blocked: blocked
+    });
+    if (error) throw error;
+
+    const updated = Array.isArray(data) ? data[0] : data;
+    const payload = updated || {
+      id,
+      subscription_status: status,
+      subscription_plan: 'mensal',
+      subscription_due_date: dueRaw || null,
+      blocked
+    };
+
+    if (Array.isArray(ADMIN_PROFILES)) {
+      ADMIN_PROFILES = ADMIN_PROFILES.map(p => p.id === id ? { ...p, ...payload } : p);
+    } else {
+      ADMIN_PROFILES = [payload];
+    }
+
+    if (ACTIVE_USER && id === ACTIVE_USER.id) {
+      ACTIVE_PROFILE = { ...ACTIVE_PROFILE, ...payload };
+    }
+
+    showToast('Assinante atualizado com sucesso');
+    renderPage();
+  } catch (error) {
+    console.error('Erro ao salvar assinante:', error);
+    showToast('Erro ao salvar. Verifique se o SQL admin RPC foi instalado.');
+  } finally {
+    ADMIN_SAVE_LOCKS.delete(id);
     card?.classList.remove('is-updating');
-    return showToast('Erro ao salvar assinante');
   }
-  if (Array.isArray(ADMIN_PROFILES)) {
-    ADMIN_PROFILES = ADMIN_PROFILES.map(p => p.id === id ? { ...p, ...payload } : p);
-  }
-  showToast('Assinante atualizado com sucesso');
-  renderPage();
-  loadAdminProfiles(false);
 }
 
 function daysUntilDue(dateStr) {
