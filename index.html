@@ -9,9 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vault Ledger">
 <meta name="application-name" content="Vault Ledger">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" type="image/png" href="./favicon.png">
-<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest?v=2.3">
+<link rel="icon" type="image/png" href="./favicon.png?v=2.3">
+<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png?v=2.3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
 <title>Vault Ledger • Gestão Financeira Inteligente</title>
@@ -89,10 +89,24 @@
  @keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
 
  /* PERIOD */
- .period-selector{display:flex;gap:8px;margin-bottom:16px;align-items:center}
- .period-btn{background:#fff;border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;font-family:var(--ff)}
+ .period-selector{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+ .period-group{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:4px;box-shadow:var(--sh);min-width:0}
+ .period-btn{background:#fff;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;font-family:var(--ff);min-height:38px;display:flex;align-items:center;justify-content:center}
  .period-btn:hover{border-color:var(--accent);color:var(--accent)}
- .period-display{font-size:13px;color:var(--text-muted);margin-left:auto;font-weight:500}
+ .period-btn.period-value{border-color:transparent;background:transparent;cursor:default;color:var(--text);font-weight:800;min-width:112px;white-space:nowrap}
+ .period-btn.period-year{min-width:76px}
+ .period-display{font-size:12px;color:var(--text-muted);font-weight:600;background:var(--bg-elevated);border:1px solid var(--border);border-radius:999px;padding:8px 12px;white-space:nowrap;margin-left:auto}
+ @media(max-width:640px){
+   .period-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+   .period-group{width:100%;justify-content:space-between;padding:5px;border-radius:14px}
+   .period-btn{padding:8px 10px;min-width:40px;font-size:14px}
+   .period-btn.period-value{min-width:0;flex:1;font-size:16px;letter-spacing:.01em}
+   .period-btn.period-year{min-width:0;flex:1;font-size:16px}
+   .period-display{grid-column:1 / -1;width:100%;margin-left:0;text-align:center;padding:7px 10px;font-size:12px}
+ }
+ @media(max-width:380px){
+   .period-selector{grid-template-columns:1fr}
+ }
 
  /* CARDS */
  .cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
@@ -952,13 +966,17 @@ const MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julh
 
 function periodSelector() {
  return `<div class="period-selector">
-  <button class="period-btn" id="prevMonthBtn" title="Mês anterior">‹</button>
-  <button class="period-btn" style="min-width:120px;cursor:default">${MESES_NOMES[CURRENT_PERIOD.month-1]}</button>
-  <button class="period-btn" id="nextMonthBtn" title="Próximo mês">›</button>
-  <button class="period-btn" id="prevYearBtn" title="Ano anterior">‹</button>
-  <button class="period-btn" style="min-width:70px;cursor:default">${CURRENT_PERIOD.year}</button>
-  <button class="period-btn" id="nextYearBtn" title="Próximo ano">›</button>
-  <div class="period-display">${MESES_NOMES[CURRENT_PERIOD.month-1]}/${CURRENT_PERIOD.year}</div>
+  <div class="period-group" aria-label="Selecionar mês">
+   <button class="period-btn" id="prevMonthBtn" title="Mês anterior">‹</button>
+   <button class="period-btn period-value" type="button" aria-label="Mês selecionado">${MESES_NOMES[CURRENT_PERIOD.month-1]}</button>
+   <button class="period-btn" id="nextMonthBtn" title="Próximo mês">›</button>
+  </div>
+  <div class="period-group" aria-label="Selecionar ano">
+   <button class="period-btn" id="prevYearBtn" title="Ano anterior">‹</button>
+   <button class="period-btn period-value period-year" type="button" aria-label="Ano selecionado">${CURRENT_PERIOD.year}</button>
+   <button class="period-btn" id="nextYearBtn" title="Próximo ano">›</button>
+  </div>
+  <div class="period-display">Referência: ${MESES_NOMES[CURRENT_PERIOD.month-1]} de ${CURRENT_PERIOD.year}</div>
  </div>`;
 }
 
@@ -4154,7 +4172,7 @@ document.addEventListener('keydown', e => {
 // Service Worker externo — necessário para instalação PWA real no GitHub Pages
 if ('serviceWorker' in navigator) {
  window.addEventListener('load', () => {
-  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch((err) => {
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => { reg.update && reg.update(); }).catch((err) => {
    console.warn('Service Worker não registrado:', err);
   });
  });
