@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-ledger-v1.1';
+const CACHE_NAME = 'vault-ledger-v1.4-landing-splash-logo';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -9,7 +9,8 @@ self.addEventListener('install', (event) => {
       './manifest.webmanifest',
       './vault-ledger-icon-192.png',
       './vault-ledger-icon-512.png',
-      './favicon.png'
+      './favicon.png',
+      './splash-logo.png'
     ]).catch(() => null))
   );
 });

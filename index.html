@@ -295,9 +295,69 @@
   .auth-alert.warning{background:var(--warning-light);color:var(--warning);border-color:rgba(217,119,6,.2)}
   .auth-code{font-family:var(--fh);font-size:28px;letter-spacing:8px;text-align:center;color:var(--accent);font-weight:800;background:var(--accent-light);padding:12px;border-radius:14px;margin:10px 0 14px}
 
+
+  /* LANDING PAGE / COMERCIAL */
+  .landing-wrap{width:100%;max-width:1120px;max-height:calc(100dvh - 24px);overflow-y:auto;padding:24px;-webkit-overflow-scrolling:touch}
+  .landing-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:24px}
+  .landing-brand{display:flex;align-items:center;gap:12px}
+  .landing-brand img{width:46px;height:46px;border-radius:13px;box-shadow:var(--sh)}
+  .landing-title{font-family:var(--fh);font-size:22px;font-weight:800;color:#1E3A5F;letter-spacing:-.6px;line-height:1}
+  .landing-subtitle{font-size:10px;color:var(--text-muted);letter-spacing:2.2px;text-transform:uppercase;margin-top:4px;font-weight:600}
+  .landing-hero{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:stretch}
+  .landing-panel{background:#fff;border:1px solid var(--border);border-radius:24px;padding:26px;box-shadow:var(--sh-md);overflow:hidden;position:relative}
+  .landing-panel::before{content:'';position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--accent),var(--purple));}
+  .landing-kicker{font-size:11px;text-transform:uppercase;letter-spacing:1.6px;color:var(--accent);font-weight:800;margin-bottom:10px}
+  .landing-headline{font-family:var(--fh);font-size:38px;line-height:1.05;letter-spacing:-1.5px;color:var(--text);font-weight:800;margin-bottom:12px}
+  .landing-copy{font-size:15px;color:var(--text-secondary);line-height:1.7;margin-bottom:18px}
+  .landing-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .landing-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+  .landing-mini-card{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:12px}
+  .landing-mini-card strong{display:block;color:var(--text);font-size:13px;margin-bottom:3px}
+  .landing-mini-card span{font-size:11px;color:var(--text-muted);line-height:1.4;display:block}
+  .landing-feature{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--border);background:var(--bg);border-radius:16px;margin-bottom:10px}
+  .landing-feature-icon{width:30px;height:30px;border-radius:10px;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0}
+  .landing-feature b{display:block;font-size:13px;color:var(--text);margin-bottom:2px}
+  .landing-feature span{font-size:12px;color:var(--text-secondary);line-height:1.5}
+  .plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+  .plan-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:15px;box-shadow:var(--sh)}
+  .plan-card.featured{border-color:var(--accent);box-shadow:0 8px 26px rgba(37,99,235,.13)}
+  .plan-name{font-weight:800;color:var(--text);font-family:var(--fh);font-size:15px}
+  .plan-price{font-family:var(--fh);font-size:20px;color:var(--accent);font-weight:800;margin:6px 0}
+  .plan-note{font-size:11px;color:var(--text-muted);line-height:1.45}
+  .admin-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .admin-toolbar .search-input{box-shadow:none}
+  .admin-kpi-note{font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4}
+  @media(max-width:780px){
+    .landing-wrap{padding:16px;max-height:100dvh}
+    .landing-top{align-items:flex-start}
+    .landing-hero{grid-template-columns:1fr}
+    .landing-headline{font-size:30px}
+    .landing-mini,.plans-grid{grid-template-columns:1fr}
+    .landing-actions .btn{width:100%}
+  }
+
+
+  /* STARTUP SPLASH */
+  #startupSplash{position:fixed;inset:0;z-index:5000;background:radial-gradient(circle at 50% 42%,#132B57 0%,#0B1220 58%,#070B14 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;transition:opacity .35s ease,visibility .35s ease}
+  #startupSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
+  .startup-logo{width:96px;height:96px;border-radius:26px;object-fit:cover;box-shadow:0 16px 44px rgba(0,0,0,.35);margin-bottom:20px}
+  .startup-name{font-family:var(--fh);font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:#fff}
+  .startup-tagline{font-size:10px;letter-spacing:3.6px;text-transform:uppercase;color:#CBD5E1;margin-top:10px;font-weight:600}
+  .startup-loader{width:92px;height:3px;border-radius:10px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:26px}
+  .startup-loader span{display:block;width:42%;height:100%;background:#fff;border-radius:10px;animation:startupLoad 1s ease-in-out infinite}
+  @keyframes startupLoad{0%{transform:translateX(-110%)}100%{transform:translateX(250%)}}
+
 </style>
 </head>
 <body>
+
+<div id="startupSplash" aria-hidden="true">
+  <img class="startup-logo" src="./splash-logo.png" alt="Vault Ledger">
+  <div class="startup-name">Vault Ledger</div>
+  <div class="startup-tagline">GESTÃO FINANCEIRA INTELIGENTE</div>
+  <div class="startup-loader"><span></span></div>
+</div>
+
 
 <!-- LOCK SCREEN / AUTH -->
 <div id="lockScreen" style="display:flex;position:fixed;inset:0;z-index:1000;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px">
@@ -2137,9 +2197,50 @@ function renderConfig() {
 
 let ADMIN_PROFILES = null;
 let ADMIN_LOADING = false;
+let ADMIN_FILTER = { q:'', status:'todos' };
 
 function isAdminUser() {
   return !!ACTIVE_PROFILE?.is_admin;
+}
+
+function isProfilePastDue(p) {
+  if (!p || !p.subscription_due_date) return false;
+  if (p.is_admin) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = parseDate(p.subscription_due_date);
+  return !!due && due < today;
+}
+
+function isProfileDueSoon(p) {
+  if (!p || !p.subscription_due_date || isProfilePastDue(p)) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = parseDate(p.subscription_due_date);
+  if (!due) return false;
+  const days = Math.ceil((due - today) / 86400000);
+  return days >= 0 && days <= 7;
+}
+
+function profileMonthlyValue(p) {
+  const plan = p?.subscription_plan || 'mensal';
+  if (plan === 'trimestral') return 0;
+  if (plan === 'anual') return 0;
+  return 0;
+}
+
+function filterAdminProfiles(profiles) {
+  let out = [...profiles];
+  const q = (ADMIN_FILTER.q || '').toLowerCase().trim();
+  const st = ADMIN_FILTER.status || 'todos';
+  if (q) out = out.filter(p => (p.email||'').toLowerCase().includes(q) || (p.nome||'').toLowerCase().includes(q));
+  if (st !== 'todos') {
+    if (st === 'liberados') out = out.filter(p => ['trial','active'].includes(p.subscription_status) && !p.blocked && !isProfilePastDue(p));
+    else if (st === 'restritos') out = out.filter(p => p.blocked || ['blocked','canceled','past_due'].includes(p.subscription_status) || isProfilePastDue(p));
+    else if (st === 'vencidos') out = out.filter(isProfilePastDue);
+    else if (st === 'vencendo') out = out.filter(isProfileDueSoon);
+    else if (st === 'admins') out = out.filter(p => p.is_admin);
+    else out = out.filter(p => p.subscription_status === st);
+  }
+  return out;
 }
 
 function renderAdmin() {
@@ -2150,25 +2251,50 @@ function renderAdmin() {
     setTimeout(loadAdminProfiles, 0);
   }
   const profiles = ADMIN_PROFILES || [];
+  const filtered = filterAdminProfiles(profiles);
   const total = profiles.length;
-  const ativos = profiles.filter(p => ['trial','active'].includes(p.subscription_status) && !p.blocked).length;
-  const bloqueados = profiles.filter(p => p.blocked || ['blocked','canceled','past_due'].includes(p.subscription_status)).length;
+  const liberados = profiles.filter(p => ['trial','active'].includes(p.subscription_status) && !p.blocked && !isProfilePastDue(p)).length;
+  const ativos = profiles.filter(p => p.subscription_status === 'active' && !p.blocked && !isProfilePastDue(p)).length;
+  const testes = profiles.filter(p => p.subscription_status === 'trial' && !p.blocked && !isProfilePastDue(p)).length;
+  const pendentes = profiles.filter(p => p.subscription_status === 'past_due').length;
+  const bloqueados = profiles.filter(p => p.blocked || ['blocked','canceled'].includes(p.subscription_status)).length;
+  const vencidos = profiles.filter(isProfilePastDue).length;
+  const vencendo = profiles.filter(isProfileDueSoon).length;
+  const admins = profiles.filter(p=>p.is_admin).length;
   return `
     <div class="section">
       <div class="section-title" style="font-family:var(--fh)">
-        Painel de assinantes
+        Painel comercial de assinantes
         <button class="filter-btn" onclick="loadAdminProfiles(true)">Atualizar</button>
       </div>
       <div class="cards-grid">
-        <div class="card"><div class="card-label">Usuários</div><div class="card-value">${total}</div></div>
-        <div class="card success"><div class="card-label">Liberados</div><div class="card-value">${ativos}</div></div>
-        <div class="card danger"><div class="card-label">Restritos</div><div class="card-value">${bloqueados}</div></div>
-        <div class="card purple"><div class="card-label">Admin</div><div class="card-value">${profiles.filter(p=>p.is_admin).length}</div></div>
+        <div class="card"><div class="card-label">Usuários</div><div class="card-value">${total}</div><div class="admin-kpi-note">Total cadastrado</div></div>
+        <div class="card success"><div class="card-label">Liberados</div><div class="card-value">${liberados}</div><div class="admin-kpi-note">Ativos + teste</div></div>
+        <div class="card"><div class="card-label">Ativos</div><div class="card-value">${ativos}</div><div class="admin-kpi-note">Pagantes liberados</div></div>
+        <div class="card purple"><div class="card-label">Teste</div><div class="card-value">${testes}</div><div class="admin-kpi-note">Em período inicial</div></div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:8px">Controle manual de assinatura com opções padronizadas. Status e plano são salvos em formato técnico seguro no Supabase.</div>
+      <div class="cards-grid">
+        <div class="card warning"><div class="card-label">Pendente</div><div class="card-value">${pendentes}</div><div class="admin-kpi-note">Pagamento pendente</div></div>
+        <div class="card danger"><div class="card-label">Bloqueados</div><div class="card-value">${bloqueados}</div><div class="admin-kpi-note">Sem acesso</div></div>
+        <div class="card danger"><div class="card-label">Vencidos</div><div class="card-value">${vencidos}</div><div class="admin-kpi-note">Data vencida</div></div>
+        <div class="card warning"><div class="card-label">Vencem em 7 dias</div><div class="card-value">${vencendo}</div><div class="admin-kpi-note">Acompanhar renovação</div></div>
+      </div>
+      <div class="admin-toolbar">
+        <div class="search-wrap" style="min-width:240px;flex:1">
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" type="text" placeholder="Buscar por nome ou e-mail" value="${esc(ADMIN_FILTER.q)}" oninput="ADMIN_FILTER.q=this.value;renderPage()">
+        </div>
+        <select class="form-select" style="width:auto;min-width:180px" onchange="ADMIN_FILTER.status=this.value;renderPage()">
+          ${[
+            ['todos','Todos'],['liberados','Liberados'],['active','Ativos'],['trial','Teste'],['past_due','Pendentes'],['blocked','Bloqueados'],['canceled','Cancelados'],['vencidos','Vencidos'],['vencendo','Vencem em 7 dias'],['admins','Admins']
+          ].map(([v,l]) => `<option value="${v}" ${ADMIN_FILTER.status===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <button class="filter-btn" onclick="ADMIN_FILTER={q:'',status:'todos'};renderPage()">Limpar</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:10px">Controle manual de assinatura. Novo cadastro entra bloqueado; após pagamento, altere para Ativa e Bloqueado = Não.</div>
     </div>
     <div class="section" style="padding:0;overflow:hidden">
-      ${ADMIN_LOADING ? `<div class="empty"><div>Carregando assinantes...</div></div>` : profiles.length === 0 ? `<div class="empty"><div>Nenhum assinante encontrado.</div></div>` : `
+      ${ADMIN_LOADING ? `<div class="empty"><div>Carregando assinantes...</div></div>` : filtered.length === 0 ? `<div class="empty"><div>Nenhum assinante encontrado com esses filtros.</div></div>` : `
       <div class="table-wrapper" style="margin:0;padding:0">
         <table class="table">
           <thead>
@@ -2179,11 +2305,12 @@ function renderAdmin() {
               <th>Vencimento</th>
               <th>Bloqueado</th>
               <th>Admin</th>
+              <th>Ações rápidas</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            ${profiles.map(p => renderAdminProfileRow(p)).join('')}
+            ${filtered.map(p => renderAdminProfileRow(p)).join('')}
           </tbody>
         </table>
       </div>`}
@@ -2204,6 +2331,7 @@ function renderAdminProfileRow(p) {
         <div style="font-weight:700;color:var(--text)">${esc(p.nome || p.email || '-')}</div>
         <div style="font-size:11px;color:var(--text-muted)">${esc(p.email || '-')}</div>
         <div style="font-size:10px;color:var(--text-muted)">Criado em ${p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}</div>
+        ${isProfilePastDue(p) ? `<div style="margin-top:4px"><span class="tag tag-danger">Vencido</span></div>` : isProfileDueSoon(p) ? `<div style="margin-top:4px"><span class="tag tag-warning">Vence em breve</span></div>` : ''}
       </td>
       <td>
         <select class="form-select" id="adm_status_${id}" style="min-width:165px">
@@ -2225,6 +2353,13 @@ function renderAdminProfileRow(p) {
       </td>
       <td>
         <span class="tag ${p.is_admin?'tag-purple':'tag-muted'}">${p.is_admin?'Sim':'Não'}</span>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;min-width:190px">
+          <button class="filter-chip" onclick="adminQuickSet('${id}','active',false)">Liberar</button>
+          <button class="filter-chip" onclick="adminQuickSet('${id}','past_due',false)">Pendente</button>
+          <button class="filter-chip" onclick="adminQuickSet('${id}','blocked',true)">Bloquear</button>
+        </div>
       </td>
       <td>
         <button class="btn btn-primary" onclick="adminSaveProfile('${id}')" style="padding:8px 12px;white-space:nowrap">Salvar</button>
@@ -2250,6 +2385,18 @@ async function loadAdminProfiles(force = false) {
     ADMIN_PROFILES = data || [];
   }
   render();
+}
+
+
+async function adminQuickSet(id, status, blocked) {
+  if (!isAdminUser()) return showToast('Acesso restrito');
+  const target = (ADMIN_PROFILES || []).find(p => p.id === id);
+  if (ACTIVE_USER && id === ACTIVE_USER.id && target?.is_admin && (blocked || ['blocked','canceled'].includes(status))) {
+    return showToast('Proteção: seu usuário admin não pode ser bloqueado por aqui');
+  }
+  if (document.getElementById('adm_status_' + id)) document.getElementById('adm_status_' + id).value = status;
+  if (document.getElementById('adm_blocked_' + id)) document.getElementById('adm_blocked_' + id).value = String(!!blocked);
+  await adminSaveProfile(id);
 }
 
 async function adminSaveProfile(id) {
@@ -3313,6 +3460,63 @@ function getUserByEmail(email) {
   };
 }
 
+
+function renderLanding() {
+  lockScreen.style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('fab').style.display = 'none';
+  lockScreen.innerHTML = `
+    <div class="landing-wrap">
+      <div class="landing-top">
+        <div class="landing-brand">
+          <img src="./vault-ledger-icon-192.png" alt="Vault Ledger">
+          <div>
+            <div class="landing-title">Vault Ledger</div>
+            <div class="landing-subtitle">Gestão Financeira Inteligente</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn btn-secondary" style="flex:0 0 auto;padding:10px 14px" onclick="renderLogin()">Entrar</button>
+          <button data-install-app class="btn btn-secondary" style="flex:0 0 auto;padding:10px 14px" onclick="installApp()">Instalar app</button>
+        </div>
+      </div>
+
+      <div class="landing-hero">
+        <section class="landing-panel">
+          <div class="landing-kicker">Sistema financeiro por assinatura</div>
+          <h1 class="landing-headline">Controle suas finanças com clareza, segurança e inteligência.</h1>
+          <p class="landing-copy">Organize receitas, despesas, empréstimos, metas, patrimônio, devoluções e investimentos em um painel simples, com dados salvos na nuvem e acesso protegido por assinatura.</p>
+          <div class="landing-actions">
+            <button class="btn btn-primary" style="flex:0 0 auto" onclick="renderSignupEmail()">Começar agora</button>
+            <a class="btn btn-secondary" style="flex:0 0 auto;text-decoration:none;text-align:center" href="${supportUrl('')}" target="_blank" rel="noopener">Falar no WhatsApp</a>
+          </div>
+          <div class="landing-mini">
+            <div class="landing-mini-card"><strong>Dados na nuvem</strong><span>Acesse seus dados com login seguro em qualquer dispositivo.</span></div>
+            <div class="landing-mini-card"><strong>Assinatura controlada</strong><span>Acesso liberado somente após aprovação do pagamento.</span></div>
+            <div class="landing-mini-card"><strong>Instalável</strong><span>Use como aplicativo no celular ou computador.</span></div>
+          </div>
+        </section>
+
+        <section class="landing-panel">
+          <div class="landing-kicker">O que o sistema faz</div>
+          <div class="landing-feature"><div class="landing-feature-icon">1</div><div><b>Dashboard financeiro</b><span>Veja saldo, resultado do mês, pendências, patrimônio e capital em circulação.</span></div></div>
+          <div class="landing-feature"><div class="landing-feature-icon">2</div><div><b>Controle de empréstimos</b><span>Acompanhe capital próprio, capital de terceiros, juros, atrasos e recebimentos.</span></div></div>
+          <div class="landing-feature"><div class="landing-feature-icon">3</div><div><b>Metas e aportes</b><span>Crie várias metas ao mesmo tempo e acompanhe depósitos, evolução e saldo reservado.</span></div></div>
+          <div class="landing-feature"><div class="landing-feature-icon">4</div><div><b>Gestão por assinatura</b><span>Conta criada entra aguardando liberação. Após pagamento, o acesso é ativado.</span></div></div>
+          <div class="plans-grid">
+            <div class="plan-card"><div class="plan-name">Mensal</div><div class="plan-price">Sob consulta</div><div class="plan-note">Ideal para começar e testar a rotina financeira.</div></div>
+            <div class="plan-card featured"><div class="plan-name">Trimestral</div><div class="plan-price">Sob consulta</div><div class="plan-note">Melhor equilíbrio para uso contínuo.</div></div>
+            <div class="plan-card"><div class="plan-name">Anual</div><div class="plan-price">Sob consulta</div><div class="plan-note">Para quem quer organização de longo prazo.</div></div>
+          </div>
+        </section>
+      </div>
+      <div style="text-align:center;padding:22px 0 2px">
+        <div style="font-size:10px;color:var(--text-muted);letter-spacing:.3px">Desenvolvido por <span style="color:var(--text-secondary);font-weight:500">Vinicius Candido dos Santos</span> · 2026</div>
+      </div>
+    </div>`;
+  updateInstallButtons();
+}
+
 function authLogo() {
   return `<div class="auth-logo-wrap">
     <img class="auth-app-icon" src="./vault-ledger-icon-192.png" alt="Vault Ledger">
@@ -3354,6 +3558,7 @@ function renderLogin(email = '', message = '') {
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="auth-link" onclick="renderSignupEmail()">Criar conta</button>
       <button class="auth-link" onclick="renderResetEmail()">Esqueci minha senha</button>
+      <button class="auth-link" onclick="renderLanding()">Conhecer o sistema</button>
     </div>
     <button data-install-app class="btn btn-secondary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:14px" onclick="installApp()">Instalar app</button>
   `);
@@ -3577,12 +3782,15 @@ async function initLockScreen() {
     try {
       const profile = await getProfile(data.session.user);
       if (!isAccessAllowed(profile)) return renderBlocked({ email: data.session.user.email, ...profile });
+      // Ao abrir pelo app instalado ou recarregar com sessão ativa, entra direto no Dashboard.
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.tab[data-page="dashboard"]')?.classList.add('active');
       return unlockAsUser(data.session.user, profile);
     } catch (e) {
       console.error(e);
     }
   }
-  renderLogin();
+  renderLanding();
 }
 
 async function logout() {
@@ -3594,7 +3802,17 @@ async function logout() {
   if (adminTab) adminTab.style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('fab').style.display = 'none';
-  initLockScreen();
+  
+function hideStartupSplash() {
+  const sp = document.getElementById('startupSplash');
+  if (!sp) return;
+  sp.classList.add('hide');
+  setTimeout(() => { if (sp && sp.parentNode) sp.parentNode.removeChild(sp); }, 450);
+}
+window.addEventListener('load', () => setTimeout(hideStartupSplash, 850));
+setTimeout(hideStartupSplash, 1700);
+
+initLockScreen();
 }
 
 function simpleHash(str) {
@@ -3699,6 +3917,16 @@ async function installApp() {
     <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal()">Entendi</button></div>
   `);
 }
+
+
+function hideStartupSplash() {
+  const sp = document.getElementById('startupSplash');
+  if (!sp) return;
+  sp.classList.add('hide');
+  setTimeout(() => { if (sp && sp.parentNode) sp.parentNode.removeChild(sp); }, 450);
+}
+window.addEventListener('load', () => setTimeout(hideStartupSplash, 850));
+setTimeout(hideStartupSplash, 1700);
 
 initLockScreen();
 
