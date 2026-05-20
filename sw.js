@@ -1,12 +1,12 @@
-const CACHE_NAME = 'vault-ledger-v2.3-pwa-mobile';
+const CACHE_NAME = 'vault-ledger-v2.4-nome-instalar';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './vault-ledger-icon-192.png',
-  './vault-ledger-icon-512.png',
-  './favicon.png',
-  './splash-logo.png'
+  './vault-ledger-icon-192.png?v=2.4',
+  './vault-ledger-icon-512.png?v=2.4',
+  './favicon.png?v=2.4',
+  './splash-logo.png?v=2.4'
 ];
 
 self.addEventListener('install', (event) => {

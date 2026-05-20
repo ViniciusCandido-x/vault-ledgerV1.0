@@ -2323,8 +2323,9 @@ function renderConfig() {
     <label class="form-label">Seu nome (aparece no app)</label>
     <input class="form-input" type="text" id="cfgUserName" value="${esc(userName)}"
      placeholder="Ex: Vinicius"
-     onchange="DATA.config.userName=this.value.trim();saveData();updateHeaderName();">
-    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Exibido no cabeçalho e na tela de boas-vindas.</div>
+     oninput="DATA.config.userName=this.value.trim();updateHeaderName();"
+     onchange="saveUserDisplayName(this.value)">
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Exibido no cabeçalho e salvo no seu perfil da nuvem.</div>
    </div>
    <button class="btn btn-secondary" onclick="logout()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:12px">Sair da conta</button>
   </div>
@@ -2346,6 +2347,17 @@ function renderConfig() {
   </div>
 
   <div class="section">
+   <div class="section-title" style="font-family:var(--fh)">Instalação no Android</div>
+   <div style="font-size:13px;color:var(--text-secondary);line-height:1.65;margin-bottom:12px">
+    A instalação como aplicativo é indicada para <strong>Android</strong>, usando o Chrome ou Edge. No iPhone, normalmente o navegador oferece apenas a opção de adicionar à tela de início.
+   </div>
+   <button class="btn btn-primary" onclick="installApp()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Instalar no Android</button>
+   <div style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:10px">
+    Se aparecer somente “Adicionar à tela inicial”, limpe os dados do site no navegador, feche o Chrome e abra novamente após alguns minutos.
+   </div>
+  </div>
+
+  <div class="section">
    <div class="section-title" style="font-family:var(--fh)">Dados e sincronização</div>
    <div style="display:flex;flex-direction:column;gap:8px">
     <button class="btn btn-primary" onclick="forceCloudSync()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Sincronizar agora com a nuvem</button>
@@ -2362,7 +2374,7 @@ function renderConfig() {
    <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">
     <div style="font-family:var(--fh);font-weight:800;font-size:18px;background:linear-gradient(90deg,#1E293B,#2563EB);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px">Vault Ledger</div>
     <p>Gestão financeira pessoal inteligente.</p>
-    <p style="margin-top:6px;font-size:12px;color:var(--text-muted)">Versão comercial com autenticação, assinatura e dados em nuvem.</p>
+    <p style="margin-top:6px;font-size:12px;color:var(--text-muted)">Versão comercial com autenticação, assinatura, dados em nuvem e instalação Android.</p>
    </div>
   </div>
 
@@ -3330,6 +3342,30 @@ function updateHeaderName() {
  const lt = document.getElementById('lockTitle');
  if (lt && document.getElementById('lockScreen').style.display !== 'none') {
   lt.textContent = name ? 'Bem-vindo, ' + name : 'Bem-vindo';
+ }
+}
+
+async function saveUserDisplayName(value) {
+ const clean = String(value || '').trim();
+ if (!DATA.config) DATA.config = {};
+ DATA.config.userName = clean;
+ updateHeaderName();
+ saveData({ localOnly: true });
+ if (!ACTIVE_USER?.id) {
+  showToast('Nome salvo neste dispositivo');
+  return;
+ }
+ try {
+  const { data, error } = await supabaseClient.rpc('update_my_display_name', { new_name: clean });
+  if (error) throw error;
+  ACTIVE_PROFILE = data || { ...(ACTIVE_PROFILE || {}), nome: clean };
+  if (ADMIN_PROFILES && Array.isArray(ADMIN_PROFILES)) {
+   ADMIN_PROFILES = ADMIN_PROFILES.map(p => p.id === ACTIVE_USER.id ? { ...p, nome: clean } : p);
+  }
+  showToast('Nome atualizado na nuvem');
+ } catch (e) {
+  console.error('Erro ao salvar nome no perfil:', e);
+  showToast('Nome salvo localmente. Rode o SQL de nome no Supabase.');
  }
 }
 
