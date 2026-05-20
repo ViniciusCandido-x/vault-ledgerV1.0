@@ -382,6 +382,22 @@
   .quick-action-btn.warning{background:var(--warning-light);border-color:rgba(217,119,6,.28);color:var(--warning)}
   .quick-action-btn.danger{background:var(--danger-light);border-color:rgba(220,38,38,.28);color:var(--danger)}
   .quick-action-btn.active{box-shadow:0 0 0 2px currentColor inset;filter:saturate(1.1)}
+
+  .quick-action-btn.success.is-selected{background:var(--success);border-color:var(--success);color:#fff;box-shadow:0 8px 18px rgba(22,163,74,.22)}
+  .quick-action-btn.warning.is-selected{background:var(--warning);border-color:var(--warning);color:#fff;box-shadow:0 8px 18px rgba(217,119,6,.22)}
+  .quick-action-btn.danger.is-selected{background:var(--danger);border-color:var(--danger);color:#fff;box-shadow:0 8px 18px rgba(220,38,38,.22)}
+  .admin-user-card.is-updating{opacity:.76;pointer-events:none;filter:saturate(.85)}
+  .analysis-year-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;margin-top:8px;scrollbar-width:none}
+  .analysis-year-strip::-webkit-scrollbar{display:none}
+  .year-pill{border:1.5px solid var(--border);background:#fff;color:var(--text-secondary);border-radius:999px;padding:8px 14px;font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:var(--ff);box-shadow:var(--sh)}
+  .year-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .analysis-grid-wide{display:grid;grid-template-columns:1.35fr .85fr;gap:14px;align-items:stretch}
+  @media(max-width:820px){.analysis-grid-wide{grid-template-columns:1fr}.chart-container.large{height:260px}}
+  .chart-container.large{height:300px;margin:12px 0 0}
+  .chart-legend{display:flex;gap:14px;justify-content:center;margin-top:8px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+  .legend-dot{display:inline-flex;align-items:center;gap:6px}.legend-dot::before{content:'';width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .legend-dot.success::before{background:var(--success)}.legend-dot.danger::before{background:var(--danger)}.legend-dot.warning::before{background:var(--warning)}
+
   .status-pill{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
   .status-pill.success{background:var(--success-light);color:var(--success)}
   .status-pill.warning{background:var(--warning-light);color:var(--warning)}
@@ -1630,6 +1646,8 @@ function renderAnalise() {
   const m = CURRENT_PERIOD.month;
   const ano = CURRENT_PERIOD.year;
   const mesNome = MESES_NOMES[m - 1];
+
+  const years = getAnalysisYears();
   const receitasMes = calcReceitasMes(m, ano);
   const despesasPagas = calcDespesasPagas(m, ano);
   const despesasPend = calcDespesasPendentes(m, ano);
@@ -1643,32 +1661,50 @@ function renderAnalise() {
   const dadosAno = MESES_NOMES.map((mes, i) => {
     const mm = i + 1;
     const rec = calcReceitasMes(mm, ano);
-    const desp = calcDespesasPagas(mm, ano);
+    const despPagas = calcDespesasPagas(mm, ano);
+    const despPend = calcDespesasPendentes(mm, ano);
+    const desp = despPagas + despPend;
     const juros = calcReceitasMes(mm, ano, 'Juros');
-    return { mes, rec, desp, resultado: rec - desp, juros };
+    return { mes, rec, desp, despPagas, despPend, resultado: rec - despPagas, juros };
   });
   const totais = {
     rec: dadosAno.reduce((s,d) => s + d.rec, 0),
-    desp: dadosAno.reduce((s,d) => s + d.desp, 0),
+    desp: dadosAno.reduce((s,d) => s + d.despPagas, 0),
+    despTotal: dadosAno.reduce((s,d) => s + d.desp, 0),
     resultado: dadosAno.reduce((s,d) => s + d.resultado, 0),
     juros: dadosAno.reduce((s,d) => s + d.juros, 0),
   };
-  const maxVal = Math.max(...dadosAno.map(d => Math.max(d.rec, d.desp)), 100);
-  const chartHTML = renderBarChart(dadosAno.map(d => ({ label: d.mes.substring(0,3), values: [d.rec, d.desp] })), ['var(--success)', 'var(--danger)'], maxVal);
-  const categorias = ['Transporte','Alimentação','Lazer','Cartão de Crédito','Conta Fixa','Outros'];
-  const catData = categorias.map(cat => ({ cat, valor: calcDespesasPagas(m, ano, cat) + calcDespesasPendentes(m, ano, cat) })).filter(x => x.valor > 0).sort((a,b)=>b.valor-a.valor);
-  const totalCat = catData.reduce((s,x)=>s+x.valor,0);
-  const maiorCat = catData[0];
+
+  const annualSeries = dadosAno.map(d => ({ label: d.mes.substring(0,3), values: [d.rec, d.despPagas] }));
+  const chartHTML = renderBarChart(annualSeries, ['var(--success)', 'var(--danger)'], Math.max(...dadosAno.map(d => Math.max(d.rec, d.despPagas)), 100), { large: true });
+
+  const catsMonth = getExpenseCategoryData(m, ano, false);
+  const totalCatMonth = catsMonth.reduce((s,x)=>s+x.valor,0);
+  const maiorCat = catsMonth[0];
+  const catsYear = getExpenseCategoryData(null, ano, true);
+  const totalCatYear = catsYear.reduce((s,x)=>s+x.valor,0);
+
+  const yearTotals = years.map(y => {
+    const rec = MESES_NOMES.reduce((s,_,idx)=>s+calcReceitasMes(idx+1,y),0);
+    const desp = MESES_NOMES.reduce((s,_,idx)=>s+calcDespesasPagas(idx+1,y),0);
+    return { label:String(y), values:[rec, desp], rec, desp, result:rec-desp };
+  });
+  const yearChart = renderBarChart(yearTotals, ['var(--success)', 'var(--danger)'], Math.max(...yearTotals.map(d=>Math.max(d.rec,d.desp)),100), { large:false });
+
   const diag = resultadoMes >= 0
-    ? `No período selecionado, o resultado está positivo em <strong>${fmt(resultadoMes)}</strong>.`
-    : `No período selecionado, as despesas pagas superam as receitas em <strong>${fmt(Math.abs(resultadoMes))}</strong>.`;
+    ? `No mês selecionado, o resultado está positivo em <strong>${fmt(resultadoMes)}</strong>.`
+    : `No mês selecionado, as despesas pagas superam as receitas em <strong>${fmt(Math.abs(resultadoMes))}</strong>.`;
 
   return `
     <div class="section">
       <div class="section-title">Análise financeira</div>
       ${periodSelector()}
+      <div class="analysis-year-strip">
+        ${years.map(y => `<button class="year-pill ${y===ano?'active':''}" onclick="setAnalysisYear(${y})">${y}</button>`).join('')}
+        ${!years.includes(ano+1) ? `<button class="year-pill" onclick="setAnalysisYear(${ano+1})">${ano+1}</button>` : ''}
+      </div>
       <div class="diagnostic-box">
-        ${diag} ${maiorCat ? `A maior concentração de gastos está em <strong>${maiorCat.cat}</strong>, com <strong>${fmt(maiorCat.valor)}</strong>.` : 'Não há despesas registradas por categoria neste período.'}
+        ${diag} ${maiorCat ? `A maior concentração de despesas do mês está em <strong>${maiorCat.cat}</strong>, com <strong>${fmt(maiorCat.valor)}</strong>.` : 'Não há despesas registradas por categoria neste mês.'}
         ${atrasados > 0 ? ` Existem <strong>${atrasados}</strong> registro(s) em atraso que exigem atenção.` : ' Não há registros em atraso no momento.'}
       </div>
     </div>
@@ -1683,26 +1719,31 @@ function renderAnalise() {
     <div class="metric-grid">
       <div class="metric-card"><div class="metric-label">Receitas pendentes</div><div class="metric-value">${fmt(recebimentosPendentes)}</div><div class="metric-note">Previstas e não recebidas</div></div>
       <div class="metric-card success"><div class="metric-label">Juros recebidos</div><div class="metric-value">${fmt(jurosMes)}</div><div class="metric-note">Receitas da categoria Juros</div></div>
-      <div class="metric-card purple"><div class="metric-label">Empréstimos em aberto</div><div class="metric-value">${fmt(emprestimosAbertos)}</div><div class="metric-note">Saldo principal em aberto</div></div>
+      <div class="metric-card purple"><div class="metric-label">Em aberto</div><div class="metric-value">${fmt(emprestimosAbertos)}</div><div class="metric-note">Registros financeiros ainda não pagos</div></div>
       <div class="metric-card warning"><div class="metric-label">Reservado em metas</div><div class="metric-value">${fmt(metasReservado)}</div><div class="metric-note">Total aportado nas metas</div></div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Despesas por categoria — ${mesNome}/${ano}</div>
-      ${catData.length === 0 ? `<div class="empty" style="padding:24px">Nenhuma despesa encontrada neste período.</div>` : catData.map(({cat, valor}) => {
-        const pct = totalCat > 0 ? (valor / totalCat) * 100 : 0;
-        return `
-          <div class="cat-bar"><span class="cat-bar-label">${cat}</span><span class="cat-bar-value">${fmt(valor)}</span><span style="font-size:11px;color:var(--text-muted);min-width:42px;text-align:right">${pct.toFixed(0)}%</span></div>
-          <div class="cat-bar-progress"><div class="cat-bar-fill" style="width:${pct}%;background:var(--accent)"></div></div>`;
-      }).join('')}
+    <div class="analysis-grid-wide">
+      <div class="section">
+        <div class="section-title">Evolução mensal — ${ano}</div>
+        ${chartHTML}
+        <div class="chart-legend"><span class="legend-dot success">Receitas</span><span class="legend-dot danger">Despesas pagas</span></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Despesas por categoria — ${ano}</div>
+        ${renderCategoryBars(catsYear, totalCatYear)}
+      </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Evolução anual — ${ano}</div>
-      ${chartHTML}
-      <div style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:12px;color:var(--text-muted)">
-        <span>Receitas</span>
-        <span>Despesas</span>
+    <div class="analysis-grid-wide">
+      <div class="section">
+        <div class="section-title">Comparativo por ano</div>
+        ${yearChart}
+        <div class="chart-legend"><span class="legend-dot success">Receitas</span><span class="legend-dot danger">Despesas pagas</span></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Despesas por categoria — ${mesNome}/${ano}</div>
+        ${renderCategoryBars(catsMonth, totalCatMonth)}
       </div>
     </div>
 
@@ -1710,16 +1751,17 @@ function renderAnalise() {
       <div class="section-title">Detalhamento anual</div>
       <div class="table-wrapper">
         <table class="table">
-          <thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Resultado</th><th class="num">Juros</th></tr></thead>
+          <thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas pagas</th><th class="num">Pendentes</th><th class="num">Resultado</th><th class="num">Juros</th></tr></thead>
           <tbody>
             ${dadosAno.map(d => `<tr>
               <td><strong>${d.mes.substring(0,3)}</strong></td>
               <td class="num">${fmt(d.rec)}</td>
-              <td class="num">${fmt(d.desp)}</td>
+              <td class="num">${fmt(d.despPagas)}</td>
+              <td class="num">${fmt(d.despPend)}</td>
               <td class="num" style="color:${d.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(d.resultado)}</td>
               <td class="num" style="color:var(--success)">${fmt(d.juros)}</td>
             </tr>`).join('')}
-            <tr style="background:var(--bg-elevated);font-weight:700"><td>Total</td><td class="num">${fmt(totais.rec)}</td><td class="num">${fmt(totais.desp)}</td><td class="num" style="color:${totais.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(totais.resultado)}</td><td class="num" style="color:var(--success)">${fmt(totais.juros)}</td></tr>
+            <tr style="background:var(--bg-elevated);font-weight:700"><td>Total</td><td class="num">${fmt(totais.rec)}</td><td class="num">${fmt(totais.desp)}</td><td class="num">${fmt(totais.despTotal - totais.desp)}</td><td class="num" style="color:${totais.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(totais.resultado)}</td><td class="num" style="color:var(--success)">${fmt(totais.juros)}</td></tr>
           </tbody>
         </table>
       </div>
@@ -1727,26 +1769,72 @@ function renderAnalise() {
   `;
 }
 
-function renderBarChart(data, colors, maxVal) {
- const W = 320, H = 180;
- const barGroupWidth = (W - 20) / data.length;
- const numSeries = data[0].values.length;
- const barWidth = (barGroupWidth - 4) / numSeries;
+function getAnalysisYears() {
+  const years = new Set([CURRENT_PERIOD.year, new Date().getFullYear()]);
+  const add = d => { const dt = parseDate(d); if (dt) years.add(dt.getFullYear()); };
+  DATA.receitas.forEach(r => { add(r.dataPrev); add(r.dataReceb); });
+  DATA.despesas.forEach(d => { add(d.data); add(d.dataPgto); });
+  DATA.emprestimos.forEach(e => { add(e.dataEmp); add(e.dataAcordada); add(e.dataPgto); });
+  DATA.investimentos.forEach(i => add(i.data));
+  DATA.devolucoes?.forEach(d => add(d.data));
+  const arr = [...years].filter(Boolean).sort((a,b)=>a-b);
+  if (!arr.includes(CURRENT_PERIOD.year+1)) arr.push(CURRENT_PERIOD.year+1);
+  return [...new Set(arr)].sort((a,b)=>a-b);
+}
+
+function setAnalysisYear(year) {
+  CURRENT_PERIOD.year = year;
+  render();
+}
+
+function getExpenseCategoryData(month, year, wholeYear = false) {
+  const cats = [...new Set((DATA.despesas || []).map(d => d.categoria || 'Outros'))];
+  const list = cats.map(cat => {
+    let valor = 0;
+    if (wholeYear) {
+      for (let mm = 1; mm <= 12; mm++) valor += calcDespesasPagas(mm, year, cat) + calcDespesasPendentes(mm, year, cat);
+    } else {
+      valor = calcDespesasPagas(month, year, cat) + calcDespesasPendentes(month, year, cat);
+    }
+    return { cat, valor };
+  }).filter(x => x.valor > 0).sort((a,b)=>b.valor-a.valor);
+  return list;
+}
+
+function renderCategoryBars(data, total) {
+  if (!data || data.length === 0) return `<div class="empty" style="padding:24px">Nenhuma despesa encontrada neste período.</div>`;
+  return data.map(({cat, valor}) => {
+    const pct = total > 0 ? (valor / total) * 100 : 0;
+    return `
+      <div class="cat-bar"><span class="cat-bar-label">${esc(cat)}</span><span class="cat-bar-value">${fmt(valor)}</span><span style="font-size:11px;color:var(--text-muted);min-width:42px;text-align:right">${pct.toFixed(0)}%</span></div>
+      <div class="cat-bar-progress"><div class="cat-bar-fill" style="width:${pct}%;background:var(--accent)"></div></div>`;
+  }).join('');
+}
+
+function renderBarChart(data, colors, maxVal, opts = {}) {
+ const W = opts.large ? 720 : 420, H = opts.large ? 260 : 210;
+ const safeData = data && data.length ? data : [{ label:'-', values:[0,0] }];
+ const barGroupWidth = (W - 34) / safeData.length;
+ const numSeries = safeData[0].values.length;
+ const barWidth = Math.max(7, (barGroupWidth - 7) / numSeries);
  
  let bars = '';
- data.forEach((d, i) => {
+ safeData.forEach((d, i) => {
   d.values.forEach((v, j) => {
-   const h = maxVal > 0 ? (v / maxVal) * (H - 30) : 0;
-   const x = 10 + i * barGroupWidth + j * barWidth + 1;
-   const y = H - 20 - h;
-   bars += `<rect class="chart-bar" x="${x}" y="${y}" width="${barWidth - 2}" height="${h}" fill="${colors[j]}" rx="2"></rect>`;
+   const h = maxVal > 0 ? (v / maxVal) * (H - 52) : 0;
+   const x = 18 + i * barGroupWidth + j * barWidth + 2;
+   const y = H - 28 - h;
+   bars += `<rect class="chart-bar" x="${x}" y="${y}" width="${Math.max(4, barWidth - 3)}" height="${h}" fill="${colors[j]}" rx="3"></rect>`;
   });
-  bars += `<text class="chart-label" x="${10 + i * barGroupWidth + barGroupWidth/2}" y="${H - 5}" text-anchor="middle">${d.label}</text>`;
+  bars += `<text class="chart-label" x="${18 + i * barGroupWidth + barGroupWidth/2}" y="${H - 8}" text-anchor="middle">${d.label}</text>`;
  });
  
- return `<div class="chart-container">
+ const gridY1 = H - 28;
+ return `<div class="chart-container ${opts.large ? 'large' : ''}">
   <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-   <line class="chart-grid" x1="10" y1="${H-20}" x2="${W-10}" y2="${H-20}"></line>
+   <line class="chart-grid" x1="18" y1="${gridY1}" x2="${W-16}" y2="${gridY1}"></line>
+   <line class="chart-grid" x1="18" y1="${Math.round(gridY1*0.66)}" x2="${W-16}" y2="${Math.round(gridY1*0.66)}"></line>
+   <line class="chart-grid" x1="18" y1="${Math.round(gridY1*0.33)}" x2="${W-16}" y2="${Math.round(gridY1*0.33)}"></line>
    ${bars}
   </svg>
  </div>`;
@@ -2318,7 +2406,7 @@ function renderAdmin() {
   if (!isAdminUser()) {
     return `<div class="section"><div class="section-title">Acesso restrito</div><div style="font-size:13px;color:var(--text-secondary)">Esta área é visível apenas para administradores.</div></div>`;
   }
-  if (!ADMIN_PROFILES && !ADMIN_LOADING) setTimeout(loadAdminProfiles, 0);
+  if (ADMIN_PROFILES === null && !ADMIN_LOADING) setTimeout(() => loadAdminProfiles(false), 0);
   const profiles = ADMIN_PROFILES || [];
   const filtered = filterAdminProfiles(profiles);
   const total = profiles.length;
@@ -2363,7 +2451,7 @@ function renderAdmin() {
     </div>
 
     <div class="admin-layout">
-      ${ADMIN_LOADING ? `<div class="section"><div class="empty"><div>Carregando assinantes...</div></div></div>` : filtered.length === 0 ? `<div class="section"><div class="empty"><div>Nenhum assinante encontrado com esses filtros.</div></div></div>` : `
+      ${ADMIN_LOADING && profiles.length === 0 ? `<div class="section"><div class="empty"><div>Carregando assinantes...</div></div></div>` : filtered.length === 0 ? `<div class="section"><div class="empty"><div>Nenhum assinante encontrado com esses filtros.</div></div></div>` : `
         <div class="admin-user-list">
           ${filtered.map(p => renderAdminProfileRow(p)).join('')}
         </div>`}
@@ -2419,9 +2507,9 @@ function renderAdminProfileRow(p) {
         </div>
       </div>
       <div class="admin-actions">
-        <button class="quick-action-btn success ${status==='active' && !p.blocked ? 'active' : ''}" onclick="adminQuickSet('${id}','active',false,30)">Liberar 30 dias</button>
-        <button class="quick-action-btn warning ${status==='past_due' ? 'active' : ''}" onclick="adminQuickSet('${id}','past_due',false)">Pendente</button>
-        <button class="quick-action-btn danger ${(p.blocked || status==='blocked') ? 'active' : ''}" onclick="adminQuickSet('${id}','blocked',true)">Bloquear</button>
+        <button class="quick-action-btn success ${status==='active' && !p.blocked ? 'active is-selected' : ''}" onclick="adminQuickSet('${id}','active',false,30)">Liberar 30 dias</button>
+        <button class="quick-action-btn warning ${status==='past_due' ? 'active is-selected' : ''}" onclick="adminQuickSet('${id}','past_due',false)">Pendente</button>
+        <button class="quick-action-btn danger ${(p.blocked || status==='blocked') ? 'active is-selected' : ''}" onclick="adminQuickSet('${id}','blocked',true)">Bloquear</button>
       </div>
       <button class="btn btn-primary" onclick="adminSaveProfile('${id}')" style="width:100%;justify-content:center;display:flex">Salvar alterações</button>
     </div>`;
@@ -2429,22 +2517,25 @@ function renderAdminProfileRow(p) {
 
 async function loadAdminProfiles(force = false) {
  if (!isAdminUser()) return;
+ if (ADMIN_LOADING && !force) return;
+ const hadData = Array.isArray(ADMIN_PROFILES) && ADMIN_PROFILES.length > 0;
  ADMIN_LOADING = true;
- if (force) ADMIN_PROFILES = null;
- render();
- const { data, error } = await supabaseClient
-  .from('profiles')
-  .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin,created_at')
-  .order('created_at', { ascending: false });
- ADMIN_LOADING = false;
- if (error) {
-  console.error(error);
-  showToast('Erro ao carregar assinantes');
-  ADMIN_PROFILES = [];
- } else {
-  ADMIN_PROFILES = data || [];
+ if (!hadData) render();
+ try {
+   const { data, error } = await supabaseClient
+    .from('profiles')
+    .select('id,email,nome,subscription_status,subscription_plan,subscription_due_date,blocked,is_admin,created_at')
+    .order('created_at', { ascending: false });
+   if (error) throw error;
+   ADMIN_PROFILES = data || [];
+ } catch (error) {
+   console.error(error);
+   showToast('Não foi possível atualizar assinantes. Mantive a lista atual.');
+   if (!ADMIN_PROFILES) ADMIN_PROFILES = [];
+ } finally {
+   ADMIN_LOADING = false;
+   render();
  }
- render();
 }
 
 
@@ -2461,11 +2552,24 @@ async function adminQuickSet(id, status, blocked, addDays = null) {
     d.setDate(d.getDate() + addDays);
     document.getElementById('adm_due_' + id).value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   }
+  highlightAdminQuickAction(id, status, blocked);
   await adminSaveProfile(id);
+}
+
+function highlightAdminQuickAction(id, status, blocked) {
+  const card = document.getElementById('admin_card_' + id);
+  if (!card) return;
+  card.querySelectorAll('.quick-action-btn').forEach(btn => btn.classList.remove('is-selected','active'));
+  const buttons = card.querySelectorAll('.quick-action-btn');
+  if (status === 'active' && !blocked) buttons[0]?.classList.add('is-selected','active');
+  else if (status === 'past_due') buttons[1]?.classList.add('is-selected','active');
+  else if (blocked || status === 'blocked') buttons[2]?.classList.add('is-selected','active');
 }
 
 async function adminSaveProfile(id) {
   if (!isAdminUser()) return showToast('Acesso restrito');
+  const card = document.getElementById('admin_card_' + id);
+  card?.classList.add('is-updating');
   const status = document.getElementById('adm_status_' + id)?.value || 'blocked';
   const plan = 'mensal';
   const dueRaw = document.getElementById('adm_due_' + id)?.value || null;
@@ -2475,6 +2579,7 @@ async function adminSaveProfile(id) {
   if (ACTIVE_USER && id === ACTIVE_USER.id && target?.is_admin && (blocked || ['blocked','canceled'].includes(status))) {
     blocked = false;
     if (document.getElementById('adm_blocked_' + id)) document.getElementById('adm_blocked_' + id).value = 'false';
+    card?.classList.remove('is-updating');
     showToast('Proteção: seu usuário admin não pode ser bloqueado por aqui');
     return;
   }
@@ -2483,10 +2588,15 @@ async function adminSaveProfile(id) {
   const { error } = await supabaseClient.from('profiles').update(payload).eq('id', id);
   if (error) {
     console.error(error);
+    card?.classList.remove('is-updating');
     return showToast('Erro ao salvar assinante');
   }
+  if (Array.isArray(ADMIN_PROFILES)) {
+    ADMIN_PROFILES = ADMIN_PROFILES.map(p => p.id === id ? { ...p, ...payload } : p);
+  }
   showToast('Assinante atualizado com sucesso');
-  await loadAdminProfiles(true);
+  renderPage();
+  loadAdminProfiles(false);
 }
 
 function daysUntilDue(dateStr) {
