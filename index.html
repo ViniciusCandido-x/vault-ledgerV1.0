@@ -282,7 +282,7 @@
   .auth-card{width:100%;max-width:430px;background:#fff;border:1px solid var(--border);border-radius:22px;padding:22px;box-shadow:var(--sh-md)}
   .auth-logo-wrap{text-align:center;margin-bottom:22px}
   .auth-app-icon{width:68px;height:68px;border-radius:18px;object-fit:cover;box-shadow:var(--sh-md);margin:0 auto 12px;display:block}
-  .auth-logo{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;font-size:36px;color:#1E3A5F;letter-spacing:-1.5px;line-height:1}
+  .auth-logo{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;font-size:36px;color:#1E3A5F;letter-spacing:-1.5px;line-height:1;white-space:nowrap}
   .auth-tagline{font-family:'Inter',sans-serif;font-weight:500;font-size:10.5px;color:#64748B;letter-spacing:3.2px;margin-top:7px;text-transform:uppercase}
   .auth-title{font-family:var(--fh);font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center}
   .auth-subtitle{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:18px;line-height:1.5}
@@ -297,10 +297,10 @@
 
 
   /* LANDING PAGE / COMERCIAL */
-  .landing-wrap{width:100%;max-width:1120px;max-height:calc(100dvh - 24px);overflow-y:auto;padding:24px;-webkit-overflow-scrolling:touch}
+  .landing-wrap{width:100%;max-width:1180px;max-height:calc(100dvh - 24px);overflow-y:auto;padding:24px;-webkit-overflow-scrolling:touch}
   .landing-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:24px}
   .landing-brand{display:flex;align-items:center;gap:12px}
-  .landing-brand img{width:46px;height:46px;border-radius:13px;box-shadow:var(--sh)}
+  .landing-brand img{width:56px;height:56px;border-radius:16px;object-fit:cover;box-shadow:var(--sh-md);background:#EFF6FF}
   .landing-title{font-family:var(--fh);font-size:22px;font-weight:800;color:#1E3A5F;letter-spacing:-.6px;line-height:1}
   .landing-subtitle{font-size:10px;color:var(--text-muted);letter-spacing:2.2px;text-transform:uppercase;margin-top:4px;font-weight:600}
   .landing-hero{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:stretch}
@@ -318,9 +318,9 @@
   .landing-feature-icon{width:30px;height:30px;border-radius:10px;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0}
   .landing-feature b{display:block;font-size:13px;color:var(--text);margin-bottom:2px}
   .landing-feature span{font-size:12px;color:var(--text-secondary);line-height:1.5}
-  .plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
-  .plan-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:15px;box-shadow:var(--sh)}
-  .plan-card.featured{border-color:var(--accent);box-shadow:0 8px 26px rgba(37,99,235,.13)}
+  .plans-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:18px}
+  .plan-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:18px;box-shadow:var(--sh);position:relative;overflow:hidden}
+  .plan-card.featured{border-color:var(--accent);box-shadow:0 12px 30px rgba(37,99,235,.14);background:linear-gradient(180deg,#FFFFFF 0%,#F8FBFF 100%)}
   .plan-name{font-weight:800;color:var(--text);font-family:var(--fh);font-size:15px}
   .plan-price{font-family:var(--fh);font-size:20px;color:var(--accent);font-weight:800;margin:6px 0}
   .plan-note{font-size:11px;color:var(--text-muted);line-height:1.45}
@@ -338,10 +338,10 @@
 
 
   /* STARTUP SPLASH */
-  #startupSplash{position:fixed;inset:0;z-index:5000;background:radial-gradient(circle at 50% 42%,#132B57 0%,#0B1220 58%,#070B14 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;transition:opacity .35s ease,visibility .35s ease}
+  #startupSplash{position:fixed;inset:0;z-index:5000;background:linear-gradient(180deg,#0E1A33 0%,#172847 55%,#0B1220 100%);display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;transition:opacity .35s ease,visibility .35s ease}
   #startupSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
-  .startup-logo{width:96px;height:96px;border-radius:26px;object-fit:cover;box-shadow:0 16px 44px rgba(0,0,0,.35);margin-bottom:20px}
-  .startup-name{font-family:var(--fh);font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:#fff}
+  .startup-logo{width:130px;height:130px;border-radius:30px;object-fit:contain;box-shadow:0 20px 54px rgba(0,0,0,.34);margin-bottom:18px;background:rgba(255,255,255,.04);padding:6px}
+  .startup-name{font-family:var(--fh);font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:#fff;white-space:nowrap}
   .startup-tagline{font-size:10px;letter-spacing:3.6px;text-transform:uppercase;color:#CBD5E1;margin-top:10px;font-weight:600}
   .startup-loader{width:92px;height:3px;border-radius:10px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:26px}
   .startup-loader span{display:block;width:42%;height:100%;background:#fff;border-radius:10px;animation:startupLoad 1s ease-in-out infinite}
@@ -2163,12 +2163,6 @@ function renderConfig() {
     </div>
 
     <div class="section">
-      <div class="section-title" style="font-family:var(--fh)">Instalação do app</div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px">Instale o Gestão Financeira Inteligente no celular ou computador para abrir como aplicativo, sem precisar entrar pelo navegador.</div>
-      <button data-install-app class="btn btn-primary" onclick="installApp()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Instalar app</button>
-    </div>
-
-    <div class="section">
       <div class="section-title" style="font-family:var(--fh)">Dados e sincronização</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-primary" onclick="forceCloudSync()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Sincronizar agora com a nuvem</button>
@@ -2340,7 +2334,7 @@ function renderAdminProfileRow(p) {
       </td>
       <td>
         <select class="form-select" id="adm_plan_${id}" style="min-width:130px">
-          ${['mensal','trimestral','anual'].map(pl => `<option value="${pl}" ${plan===pl?'selected':''}>${planLabel(pl)}</option>`).join('')}
+          <option value="mensal" selected>Mensal</option>
         </select>
       </td>
       <td><input class="form-input" type="date" id="adm_due_${id}" value="${esc(due)}" style="min-width:140px"></td>
@@ -3444,8 +3438,7 @@ function subscriptionTagClass(status, blocked = false) {
 }
 
 function planLabel(plan) {
-  const map = { mensal:'Mensal', trimestral:'Trimestral', anual:'Anual' };
-  return map[plan] || plan || 'Mensal';
+  return 'Mensal';
 }
 
 function getUserByEmail(email) {
@@ -3472,41 +3465,48 @@ function renderLanding() {
           <img src="./vault-ledger-icon-192.png" alt="Vault Ledger">
           <div>
             <div class="landing-title">Vault Ledger</div>
-            <div class="landing-subtitle">Gestão Financeira Inteligente</div>
+            <div class="landing-subtitle">GESTÃO FINANCEIRA INTELIGENTE</div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-          <button class="btn btn-secondary" style="flex:0 0 auto;padding:10px 14px" onclick="renderLogin()">Entrar</button>
-          <button data-install-app class="btn btn-secondary" style="flex:0 0 auto;padding:10px 14px" onclick="installApp()">Instalar app</button>
+        <div class="landing-actions" style="margin:0">
+          <a class="btn btn-secondary" style="flex:0 0 auto;text-decoration:none;text-align:center" href="${supportUrl('Olá, Vinicius! Quero conhecer melhor o Vault Ledger e falar sobre a assinatura mensal.') }" target="_blank" rel="noopener">Falar no WhatsApp</a>
+          <button class="btn btn-primary" style="flex:0 0 auto" onclick="renderLogin()">Entrar</button>
         </div>
       </div>
 
       <div class="landing-hero">
         <section class="landing-panel">
-          <div class="landing-kicker">Sistema financeiro por assinatura</div>
-          <h1 class="landing-headline">Controle suas finanças com clareza, segurança e inteligência.</h1>
-          <p class="landing-copy">Organize receitas, despesas, empréstimos, metas, patrimônio, devoluções e investimentos em um painel simples, com dados salvos na nuvem e acesso protegido por assinatura.</p>
+          <div class="landing-kicker">Assinatura mensal</div>
+          <h1 class="landing-headline">Organize sua vida financeira em um sistema claro, seguro e profissional.</h1>
+          <p class="landing-copy">O Vault Ledger reúne receitas, despesas, empréstimos, metas, devoluções, investimentos e patrimônio em um só lugar. Tudo com login seguro, dados na nuvem e liberação de acesso controlada por assinatura.</p>
           <div class="landing-actions">
-            <button class="btn btn-primary" style="flex:0 0 auto" onclick="renderSignupEmail()">Começar agora</button>
-            <a class="btn btn-secondary" style="flex:0 0 auto;text-decoration:none;text-align:center" href="${supportUrl('')}" target="_blank" rel="noopener">Falar no WhatsApp</a>
+            <button class="btn btn-primary" style="flex:0 0 auto" onclick="renderSignupEmail()">Criar conta</button>
+            <a class="btn btn-secondary" style="flex:0 0 auto;text-decoration:none;text-align:center" href="${supportUrl('Olá, Vinicius! Acabei de conhecer o Vault Ledger e quero assinar o plano mensal. Pode me orientar?') }" target="_blank" rel="noopener">Assinar pelo WhatsApp</a>
           </div>
           <div class="landing-mini">
-            <div class="landing-mini-card"><strong>Dados na nuvem</strong><span>Acesse seus dados com login seguro em qualquer dispositivo.</span></div>
-            <div class="landing-mini-card"><strong>Assinatura controlada</strong><span>Acesso liberado somente após aprovação do pagamento.</span></div>
-            <div class="landing-mini-card"><strong>Instalável</strong><span>Use como aplicativo no celular ou computador.</span></div>
+            <div class="landing-mini-card"><strong>Dados protegidos</strong><span>Seu acesso é individual e os dados ficam vinculados somente à sua conta.</span></div>
+            <div class="landing-mini-card"><strong>Rotina completa</strong><span>Controle entradas, saídas, metas, patrimônio e capital em circulação com praticidade.</span></div>
+            <div class="landing-mini-card"><strong>Liberação manual</strong><span>Novas contas entram bloqueadas e são ativadas após a confirmação do pagamento.</span></div>
           </div>
         </section>
 
         <section class="landing-panel">
-          <div class="landing-kicker">O que o sistema faz</div>
-          <div class="landing-feature"><div class="landing-feature-icon">1</div><div><b>Dashboard financeiro</b><span>Veja saldo, resultado do mês, pendências, patrimônio e capital em circulação.</span></div></div>
-          <div class="landing-feature"><div class="landing-feature-icon">2</div><div><b>Controle de empréstimos</b><span>Acompanhe capital próprio, capital de terceiros, juros, atrasos e recebimentos.</span></div></div>
-          <div class="landing-feature"><div class="landing-feature-icon">3</div><div><b>Metas e aportes</b><span>Crie várias metas ao mesmo tempo e acompanhe depósitos, evolução e saldo reservado.</span></div></div>
-          <div class="landing-feature"><div class="landing-feature-icon">4</div><div><b>Gestão por assinatura</b><span>Conta criada entra aguardando liberação. Após pagamento, o acesso é ativado.</span></div></div>
+          <div class="landing-kicker">Por que usar</div>
+          <div class="landing-feature"><div class="landing-feature-icon">1</div><div><b>Visão financeira centralizada</b><span>Acompanhe saldo, resultado do mês, compromissos pendentes, patrimônio e indicadores importantes sem planilhas soltas.</span></div></div>
+          <div class="landing-feature"><div class="landing-feature-icon">2</div><div><b>Controle detalhado de empréstimos</b><span>Registre capital próprio e de terceiros, juros, atrasos, recebimentos e devoluções com histórico organizado.</span></div></div>
+          <div class="landing-feature"><div class="landing-feature-icon">3</div><div><b>Metas e aportes</b><span>Crie várias metas ao mesmo tempo, acompanhe a evolução e visualize o quanto do saldo já está reservado.</span></div></div>
+          <div class="landing-feature"><div class="landing-feature-icon">4</div><div><b>Acesso por assinatura</b><span>Conta criada, pagamento confirmado e liberação feita. Um fluxo simples para o cliente e controlado para a administração.</span></div></div>
           <div class="plans-grid">
-            <div class="plan-card"><div class="plan-name">Mensal</div><div class="plan-price">Sob consulta</div><div class="plan-note">Ideal para começar e testar a rotina financeira.</div></div>
-            <div class="plan-card featured"><div class="plan-name">Trimestral</div><div class="plan-price">Sob consulta</div><div class="plan-note">Melhor equilíbrio para uso contínuo.</div></div>
-            <div class="plan-card"><div class="plan-name">Anual</div><div class="plan-price">Sob consulta</div><div class="plan-note">Para quem quer organização de longo prazo.</div></div>
+            <div class="plan-card featured">
+              <div class="plan-name">Plano mensal</div>
+              <div class="plan-price">Sob consulta</div>
+              <div class="plan-note">Assinatura mensal com acesso ao sistema financeiro completo, login individual, sincronização em nuvem, controle de assinatura e suporte pelo WhatsApp.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+                <span class="tag tag-success">Login seguro</span>
+                <span class="tag tag-accent">Dados na nuvem</span>
+                <span class="tag tag-purple">Suporte rápido</span>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -3543,7 +3543,7 @@ function renderAuthFrame(inner) {
 function renderLogin(email = '', message = '') {
   renderAuthFrame(`
     <div class="auth-title">Entrar na conta</div>
-    <div class="auth-subtitle">Acesse sua assinatura para gerenciar seus dados financeiros.</div>
+    <div class="auth-subtitle">Entre com seu e-mail e senha para acessar sua assinatura mensal e gerenciar seus dados financeiros.</div>
     ${message ? `<div class="auth-alert info">${message}</div>` : ''}
     <div id="authError" class="auth-alert error" style="display:none"></div>
     <div class="form-group">
@@ -3558,9 +3558,8 @@ function renderLogin(email = '', message = '') {
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="auth-link" onclick="renderSignupEmail()">Criar conta</button>
       <button class="auth-link" onclick="renderResetEmail()">Esqueci minha senha</button>
-      <button class="auth-link" onclick="renderLanding()">Conhecer o sistema</button>
+      <button class="auth-link" onclick="renderLanding()">Voltar à apresentação</button>
     </div>
-    <button data-install-app class="btn btn-secondary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px;margin-top:14px" onclick="installApp()">Instalar app</button>
   `);
   setTimeout(() => document.getElementById('loginEmail')?.focus(), 0);
 }
@@ -3802,17 +3801,7 @@ async function logout() {
   if (adminTab) adminTab.style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('fab').style.display = 'none';
-  
-function hideStartupSplash() {
-  const sp = document.getElementById('startupSplash');
-  if (!sp) return;
-  sp.classList.add('hide');
-  setTimeout(() => { if (sp && sp.parentNode) sp.parentNode.removeChild(sp); }, 450);
-}
-window.addEventListener('load', () => setTimeout(hideStartupSplash, 850));
-setTimeout(hideStartupSplash, 1700);
-
-initLockScreen();
+  renderLanding();
 }
 
 function simpleHash(str) {
@@ -3925,8 +3914,8 @@ function hideStartupSplash() {
   sp.classList.add('hide');
   setTimeout(() => { if (sp && sp.parentNode) sp.parentNode.removeChild(sp); }, 450);
 }
-window.addEventListener('load', () => setTimeout(hideStartupSplash, 850));
-setTimeout(hideStartupSplash, 1700);
+window.addEventListener('load', () => setTimeout(hideStartupSplash, 520));
+setTimeout(hideStartupSplash, 1200);
 
 initLockScreen();
 
