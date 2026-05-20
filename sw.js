@@ -1,5 +1,5 @@
-const CACHE_NAME = 'vault-ledger-v2-5-pwa-fix';
-const APP_SHELL = [
+const CACHE_NAME = 'vault-ledger-v2.3-pwa-mobile';
+const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
@@ -9,34 +9,44 @@ const APP_SHELL = [
   './splash-logo.png'
 ];
 
-self.addEventListener('install', event => {
+self.addEventListener('install', (event) => {
   self.skipWaiting();
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => null));
+});
+
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL).catch(() => null))
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    )).then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', event => {
+self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
+  const request = event.request;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy)).catch(() => null);
+          return response;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
 
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
+    caches.match(request).then((cached) => {
+      const fetchPromise = fetch(request).then((response) => {
         const copy = response.clone();
-        if (url.origin === self.location.origin) {
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => null);
-        }
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => null);
         return response;
-      })
-      .catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
+      }).catch(() => cached);
+      return cached || fetchPromise;
+    })
   );
 });
