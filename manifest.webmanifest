@@ -1,17 +1,17 @@
 {
-  "name": "Vault Ledger - Gestão Financeira Inteligente",
+  "name": "Vault Ledger",
   "short_name": "Vault Ledger",
-  "description": "Gestão financeira inteligente por assinatura.",
-  "id": "/vault-ledgerv1.0/",
-  "start_url": "/vault-ledgerv1.0/?source=pwa",
-  "scope": "/vault-ledgerv1.0/",
+  "description": "Gestão Financeira Inteligente",
+  "id": "./index.html",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "display_override": [
     "standalone",
     "minimal-ui"
   ],
-  "background_color": "#0B1220",
-  "theme_color": "#0B1220",
+  "background_color": "#0F274A",
+  "theme_color": "#0F274A",
   "orientation": "portrait",
   "prefer_related_applications": false,
   "categories": [
