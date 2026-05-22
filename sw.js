@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vault-ledger-v2.5-pwa-logo-install';
+const CACHE_NAME = 'vault-ledger-v2.9-pwa-logo-install';
 const ASSETS = [
   './',
   './index.html',

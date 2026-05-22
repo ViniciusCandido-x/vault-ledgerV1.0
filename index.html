@@ -9,9 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vault Ledger">
 <meta name="application-name" content="Vault Ledger">
-<link rel="manifest" href="./manifest.webmanifest?v=2.3">
-<link rel="icon" type="image/png" href="./favicon.png?v=2.3">
-<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png?v=2.3">
+<link rel="manifest" href="./manifest.webmanifest?v=2.9">
+<link rel="icon" type="image/png" href="./favicon.png?v=2.9">
+<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png?v=2.9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
 <title>Vault Ledger • Gestão Financeira Inteligente</title>
@@ -453,15 +453,15 @@
   .meta-deadline.success{background:var(--success-light);color:var(--success)}
 
 
-  .ai-action-card{background:#fff;border:1.5px solid var(--accent);border-radius:16px;padding:14px;margin:10px 0 0 36px;box-shadow:var(--sh-md)}
-  .ai-action-title{font-family:var(--fh);font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px}
+  .ai-action-card{background:linear-gradient(180deg,#FFFFFF 0%,#F8FBFF 100%);border:1.5px solid var(--accent);border-radius:18px;padding:15px;margin:10px 0 0 36px;box-shadow:var(--sh-md)}
+  .ai-action-title{font-family:var(--fh);font-size:15px;font-weight:800;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px}
   .ai-action-desc{font-size:13px;color:var(--text-secondary);line-height:1.55;margin-bottom:12px}
   .ai-action-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px}
   .ai-action-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border);padding:6px 0;font-size:12px}
   .ai-action-row span:first-child{color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
   .ai-action-row span:last-child{color:var(--text);font-weight:600;text-align:right}
   .ai-action-buttons{display:flex;gap:8px;flex-wrap:wrap}
-  .ai-action-buttons .btn{flex:1;min-width:130px}
+  .ai-action-buttons .btn{flex:1;min-width:130px}.ai-action-pill{display:inline-flex;align-items:center;border-radius:999px;background:var(--accent-light);color:var(--accent);font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:800;padding:3px 8px}
 
 </style>
 </head>
@@ -2316,9 +2316,10 @@ function renderIA() {
 
 function renderChatMsg(msg) {
  const isUser = msg.role === 'user';
+ const initials = isUser ? 'Você' : 'IA';
  const safe = sanitizeText(msg.content)
-  .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-  .replace(/\n/g,'<br>');
+   .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+   .replace(/\n/g,'<br>');
  return `
   <div class="chat-msg ${isUser?'user':'ai'}">
    <div class="chat-avatar ${isUser?'user-av':'ai-av'}">${isUser?'VC':'IA'}</div>
@@ -2329,20 +2330,22 @@ function renderChatMsg(msg) {
 
 function renderPendingAiAction() {
  if (!pendingAiAction) return '';
- const a = pendingAiAction;
+ const a = normalizeAiAction(pendingAiAction) || pendingAiAction;
  const rows = [];
  if (a.entity) rows.push(['Área', aiEntityLabel(a.entity)]);
  if (a.operation) rows.push(['Ação', aiOperationLabel(a.operation)]);
+ if (a.payload?.categoria) rows.push(['Categoria', a.payload.categoria]);
  if (a.payload?.descricao || a.payload?.desc || a.payload?.nome) rows.push(['Descrição', a.payload.descricao || a.payload.desc || a.payload.nome]);
- if (a.payload?.valor !== undefined) rows.push(['Valor', fmt(Number(a.payload.valor) || 0)]);
- if (a.payload?.data || a.payload?.dataReceb || a.payload?.dataPgto || a.payload?.dataPrev) rows.push(['Data', fmtDate(a.payload.data || a.payload.dataReceb || a.payload.dataPgto || a.payload.dataPrev)]);
+ if (a.payload?.valor !== undefined || a.payload?.valorMeta !== undefined) rows.push(['Valor', fmt(Number(a.payload.valor ?? a.payload.valorMeta) || 0)]);
+ if (a.payload?.dataLimite) rows.push(['Data limite', fmtDate(a.payload.dataLimite)]);
+ if (a.payload?.data || a.payload?.dataReceb || a.payload?.dataPgto || a.payload?.dataPrev || a.payload?.dataEmp || a.payload?.dataAcordada) rows.push(['Data', fmtDate(a.payload.data || a.payload.dataReceb || a.payload.dataPgto || a.payload.dataPrev || a.payload.dataEmp || a.payload.dataAcordada)]);
  if (a.targetId) rows.push(['ID do registro', a.targetId]);
  return `
   <div class="ai-action-card">
-   <div class="ai-action-title">Confirmação necessária</div>
-   <div class="ai-action-desc">${sanitizeText(a.summary || 'A IA preparou uma alteração. Confirme para aplicar no sistema.')}</div>
+   <div class="ai-action-title"><span>Confirmação necessária</span><span class="ai-action-pill">${sanitizeText(aiEntityLabel(a.entity || ''))}</span></div>
+   <div class="ai-action-desc">${sanitizeText(a.summary || 'A IA preparou uma alteração. Revise os dados abaixo e confirme para aplicar no sistema.')}</div>
    <div class="ai-action-grid">
-    ${rows.map(([k,v]) => `<div class="ai-action-row"><span>${k}</span><span>${sanitizeText(v)}</span></div>`).join('')}
+    ${rows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}
    </div>
    <div class="ai-action-buttons">
     <button class="btn btn-primary" onclick="confirmAiAction()">Confirmar e aplicar</button>
@@ -2398,25 +2401,104 @@ async function sendChat() {
  renderChatMessages(true);
 
  try {
-  const { data, error } = await supabaseClient.functions.invoke('vault-ledger-ia', {
-   body: {
-    message: text,
-    history: chatHistory.slice(-10),
-    context: compactFinancialContext()
-   }
-  });
+  const payload = { message: text, history: chatHistory.slice(-10), context: compactFinancialContext() };
+  let result = await supabaseClient.functions.invoke('vault-ledger-ai', { body: payload });
+  if (result.error) {
+   // Compatibilidade com a função criada originalmente como vault-ledger-ia.
+   const fallback = await supabaseClient.functions.invoke('vault-ledger-ia', { body: payload });
+   if (fallback.error) throw result.error;
+   result = fallback;
+  }
+  const data = result.data;
+  if (!data) throw new Error('Resposta vazia da IA');
 
-  if (error) throw error;
-  if (!data || !data.reply) throw new Error('Resposta vazia da IA');
-  chatHistory.push({ role: 'assistant', content: data.reply });
-  if (data.pendingAction) pendingAiAction = data.pendingAction;
+  const parsed = parseAiResponse(data);
+  chatHistory.push({ role: 'assistant', content: parsed.reply || 'Pronto. Revise a ação preparada abaixo.' });
+  if (parsed.pendingAction) pendingAiAction = normalizeAiAction(parsed.pendingAction);
  } catch (err) {
   console.error(err);
-  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique se a Edge Function vault-ledger-ia foi publicada e se o secret OPENAI_API_KEY está correto.' });
+  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique se a Edge Function foi publicada e se o secret OPENAI_API_KEY está correto.' });
  }
 
  chatLoading = false;
  renderChatMessages(false);
+}
+
+function parseAiResponse(data) {
+ let reply = data.reply || data.message || '';
+ let pendingAction = data.pendingAction || data.actionToConfirm || null;
+
+ // Segurança: se a função antiga devolver JSON cru dentro de reply, converte para card de confirmação.
+ const raw = typeof reply === 'string' ? reply.trim() : '';
+ const obj = extractJsonObject(raw);
+ if (obj) {
+  if (obj.reply) reply = obj.reply;
+  else if (obj.summary) reply = 'Revise a ação preparada abaixo antes de confirmar.';
+  else if (obj.requiresConfirmation || obj.pendingAction || obj.action) reply = 'Revise a ação preparada abaixo antes de confirmar.';
+  pendingAction = pendingAction || obj.pendingAction || obj.action || obj;
+ }
+
+ if (pendingAction?.requiresConfirmation === false) pendingAction = null;
+ if (pendingAction && pendingAction.requiresConfirmation !== undefined) {
+  pendingAction = { ...pendingAction, ...(pendingAction.action && typeof pendingAction.action === 'object' ? pendingAction.action : {}) };
+ }
+ return { reply: String(reply || '').trim(), pendingAction };
+}
+
+function extractJsonObject(text) {
+ if (!text || typeof text !== 'string') return null;
+ const cleaned = text.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+ const start = cleaned.indexOf('{');
+ const end = cleaned.lastIndexOf('}');
+ if (start < 0 || end <= start) return null;
+ try { return JSON.parse(cleaned.slice(start, end + 1)); } catch(e) { return null; }
+}
+
+function normalizeAiAction(action) {
+ if (!action || typeof action !== 'object') return null;
+ const raw = action.action && typeof action.action === 'object' ? { ...action, ...action.action } : { ...action };
+ let entity = String(raw.entity || raw.table || raw.area || raw.tipo || '').toLowerCase().trim();
+ entity = entity.replace(/-/g,'_');
+ const entityMap = {
+  receita:'receitas', receitas:'receitas', income:'receitas', incomes:'receitas',
+  despesa:'despesas', despesas:'despesas', expense:'despesas', expenses:'despesas',
+  emprestimo:'emprestimos', empréstimo:'emprestimos', emprestimos:'emprestimos', empréstimos:'emprestimos', loans:'emprestimos', loan:'emprestimos',
+  meta:'metas', metas:'metas', goal:'metas', goals:'metas',
+  aporte:'aportes_metas', aportes:'aportes_metas', aporte_meta:'aportes_metas', aportes_metas:'aportes_metas', deposit:'aportes_metas', deposits:'aportes_metas',
+  devolucao:'devolucoes', devolução:'devolucoes', devolucoes:'devolucoes', devoluções:'devolucoes',
+  investimento:'investimentos', investimentos:'investimentos', investment:'investimentos', investments:'investimentos'
+ };
+ entity = entityMap[entity] || entity;
+ let operation = String(raw.operation || raw.operacao || raw.actionType || raw.type || '').toLowerCase().trim();
+ const opMap = { inserir:'create', adicionar:'create', criar:'create', add:'create', insert:'create', create:'create', novo:'create', nova:'create',
+  editar:'update', atualizar:'update', alterar:'update', update:'update', edit:'update',
+  excluir:'delete', apagar:'delete', deletar:'delete', remove:'delete', delete:'delete' };
+ operation = opMap[operation] || operation;
+ const payload = raw.payload || raw.data || raw.fields || {};
+ return {
+  entity,
+  operation,
+  targetId: raw.targetId || raw.id || payload.id || null,
+  payload: normalizeAiPayloadFields(payload),
+  summary: raw.summary || raw.resumo || raw.confirmationText || raw.descricao || ''
+ };
+}
+
+function normalizeAiPayloadFields(payload) {
+ const p = { ...(payload || {}) };
+ if (p.description && !p.descricao) p.descricao = p.description;
+ if (p.nome_meta && !p.nome) p.nome = p.nome_meta;
+ if (p.valor_meta !== undefined && p.valorMeta === undefined) p.valorMeta = p.valor_meta;
+ if (p.data_limite && !p.dataLimite) p.dataLimite = p.data_limite;
+ if (p.data_receb && !p.dataReceb) p.dataReceb = p.data_receb;
+ if (p.data_pgto && !p.dataPgto) p.dataPgto = p.data_pgto;
+ if (p.data_prev && !p.dataPrev) p.dataPrev = p.data_prev;
+ if (p.data_emp && !p.dataEmp) p.dataEmp = p.data_emp;
+ if (p.data_acordada && !p.dataAcordada) p.dataAcordada = p.data_acordada;
+ if (p.forma_pgto && !p.formaPgto) p.formaPgto = p.forma_pgto;
+ if (p.dono_terceiro && !p.donoTerceiro) p.donoTerceiro = p.dono_terceiro;
+ if (p.meta_id && !p.metaId) p.metaId = p.meta_id;
+ return p;
 }
 
 function renderChatMessages(loading) {
@@ -2432,7 +2514,7 @@ function renderChatMessages(loading) {
 function confirmAiAction() {
  if (!pendingAiAction) return;
  try {
-  const result = applyAiAction(pendingAiAction);
+  const result = applyAiAction(normalizeAiAction(pendingAiAction));
   pendingAiAction = null;
   saveData();
   render();
@@ -2453,6 +2535,8 @@ function cancelAiAction() {
 }
 
 function applyAiAction(action) {
+ action = normalizeAiAction(action);
+ if (!action) throw new Error('Ação inválida.');
  const entity = action.entity;
  const op = action.operation;
  const p = action.payload || {};
@@ -2479,7 +2563,7 @@ function aiCreate(entity, p) {
   return 'Empréstimo criado com sucesso.';
  }
  if (entity === 'metas') {
-  DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome:p.nome || 'Nova meta', valorMeta:Number(p.valorMeta || p.valor)||0, status:p.status || 'Ativa', dataLimite:p.dataLimite || '', obs:p.obs || '', aportes:[] });
+  DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome:p.nome || 'Nova meta', valorMeta:Number(p.valorMeta || p.valor)||0, status:p.status || 'Ativa', dataLimite:p.dataLimite || p.data || '', obs:p.obs || '', aportes:[] });
   return 'Meta criada com sucesso.';
  }
  if (entity === 'aportes_metas') {
@@ -2540,7 +2624,7 @@ function aiDelete(entity, id) {
 }
 
 function cleanAiPayload(p) {
- const out = { ...p };
+ const out = normalizeAiPayloadFields({ ...p });
  delete out.id; delete out.metaId; delete out.metaNome;
  Object.keys(out).forEach(k => out[k] === undefined && delete out[k]);
  return out;
@@ -3417,6 +3501,7 @@ function saveMeta(id) {
   meta.nome = nome;
   meta.valorMeta = valorMeta;
   meta.status = status;
+  meta.dataLimite = dataLimite;
   meta.obs = obs;
  } else {
   DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome, valorMeta, status, dataLimite, obs, aportes: [] });
