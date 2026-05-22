@@ -2316,11 +2316,9 @@ function renderIA() {
 
 function renderChatMsg(msg) {
  const isUser = msg.role === 'user';
- const initials = isUser ? 'Você' : 'IA';
  const safe = sanitizeText(msg.content)
   .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-  .replace(/
-/g,'<br>');
+  .replace(/\n/g,'<br>');
  return `
   <div class="chat-msg ${isUser?'user':'ai'}">
    <div class="chat-avatar ${isUser?'user-av':'ai-av'}">${isUser?'VC':'IA'}</div>
@@ -2400,7 +2398,7 @@ async function sendChat() {
  renderChatMessages(true);
 
  try {
-  const { data, error } = await supabaseClient.functions.invoke('vault-ledger-ai', {
+  const { data, error } = await supabaseClient.functions.invoke('vault-ledger-ia', {
    body: {
     message: text,
     history: chatHistory.slice(-10),
@@ -2414,7 +2412,7 @@ async function sendChat() {
   if (data.pendingAction) pendingAiAction = data.pendingAction;
  } catch (err) {
   console.error(err);
-  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique se a Edge Function vault-ledger-ai foi publicada e se o secret OPENAI_API_KEY está correto.' });
+  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique se a Edge Function vault-ledger-ia foi publicada e se o secret OPENAI_API_KEY está correto.' });
  }
 
  chatLoading = false;
@@ -4471,7 +4469,11 @@ function hideStartupSplash() {
 window.addEventListener('load', () => setTimeout(hideStartupSplash, 520));
 setTimeout(hideStartupSplash, 1200);
 
-initLockScreen();
+initLockScreen().catch(err => {
+ console.error('Erro ao iniciar Vault Ledger:', err);
+ hideStartupSplash();
+ renderLanding();
+});
 
 // FAB começa escondido (até desbloquear)
 document.getElementById('fab').style.display = 'none';
