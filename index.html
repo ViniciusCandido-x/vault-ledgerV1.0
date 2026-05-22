@@ -2235,6 +2235,7 @@ function deleteDevolucao(id) {
 let chatHistory = [];
 let chatLoading = false;
 let pendingAiAction = null;
+let LAST_AI_APPLIED_ACTION = null;
 
 function sanitizeText(v) {
  return String(v ?? '').replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
@@ -2334,12 +2335,19 @@ function renderPendingAiAction() {
  const rows = [];
  if (a.entity) rows.push(['Área', aiEntityLabel(a.entity)]);
  if (a.operation) rows.push(['Ação', aiOperationLabel(a.operation)]);
- if (a.payload?.categoria) rows.push(['Categoria', a.payload.categoria]);
- if (a.payload?.descricao || a.payload?.desc || a.payload?.nome) rows.push(['Descrição', a.payload.descricao || a.payload.desc || a.payload.nome]);
- if (a.payload?.valor !== undefined || a.payload?.valorMeta !== undefined) rows.push(['Valor', fmt(Number(a.payload.valor ?? a.payload.valorMeta) || 0)]);
- if (a.payload?.dataLimite) rows.push(['Data limite', fmtDate(a.payload.dataLimite)]);
- if (a.payload?.data || a.payload?.dataReceb || a.payload?.dataPgto || a.payload?.dataPrev || a.payload?.dataEmp || a.payload?.dataAcordada) rows.push(['Data', fmtDate(a.payload.data || a.payload.dataReceb || a.payload.dataPgto || a.payload.dataPrev || a.payload.dataEmp || a.payload.dataAcordada)]);
+ if (a.targetName) rows.push(['Registro localizado', a.targetName]);
  if (a.targetId) rows.push(['ID do registro', a.targetId]);
+ const beforeRows = aiObjectRows(a.before || null);
+ const afterRows = aiObjectRows(a.after || a.payload || null);
+ const payloadRows = [];
+ if (!beforeRows.length && !afterRows.length) {
+  if (a.payload?.categoria) payloadRows.push(['Categoria', a.payload.categoria]);
+  if (a.payload?.descricao || a.payload?.desc || a.payload?.nome) payloadRows.push(['Descrição', a.payload.descricao || a.payload.desc || a.payload.nome]);
+  if (a.payload?.valor !== undefined || a.payload?.valorMeta !== undefined) payloadRows.push(['Valor', fmt(Number(a.payload.valor ?? a.payload.valorMeta) || 0)]);
+  if (a.payload?.dataLimite) payloadRows.push(['Data limite', fmtDate(a.payload.dataLimite)]);
+  if (a.payload?.data || a.payload?.dataReceb || a.payload?.dataPgto || a.payload?.dataPrev || a.payload?.dataEmp || a.payload?.dataAcordada) payloadRows.push(['Data', fmtDate(a.payload.data || a.payload.dataReceb || a.payload.dataPgto || a.payload.dataPrev || a.payload.dataEmp || a.payload.dataAcordada)]);
+  if (a.payload?.dataPgto) payloadRows.push(['Status', 'Pago em ' + fmtDate(a.payload.dataPgto)]);
+ }
  return `
   <div class="ai-action-card">
    <div class="ai-action-title"><span>Confirmação necessária</span><span class="ai-action-pill">${sanitizeText(aiEntityLabel(a.entity || ''))}</span></div>
@@ -2347,11 +2355,34 @@ function renderPendingAiAction() {
    <div class="ai-action-grid">
     ${rows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}
    </div>
+   ${beforeRows.length ? `<div style="font-size:11px;color:var(--text-muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">Antes</div><div class="ai-action-grid">${beforeRows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}</div>` : ''}
+   ${afterRows.length ? `<div style="font-size:11px;color:var(--success);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">Depois</div><div class="ai-action-grid">${afterRows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}</div>` : ''}
+   ${payloadRows.length ? `<div class="ai-action-grid">${payloadRows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}</div>` : ''}
    <div class="ai-action-buttons">
     <button class="btn btn-primary" onclick="confirmAiAction()">Confirmar e aplicar</button>
     <button class="btn btn-secondary" onclick="cancelAiAction()">Cancelar</button>
    </div>
   </div>`;
+}
+
+function aiObjectRows(obj) {
+ if (!obj || typeof obj !== 'object') return [];
+ const rows = [];
+ const map = [
+  ['nome','Nome'], ['cliente','Cliente'], ['desc','Descrição'], ['descricao','Descrição'], ['categoria','Categoria'], ['sub','Subcategoria'],
+  ['valor','Valor'], ['valorMeta','Valor alvo'], ['juros','Juros'], ['origem','Origem'], ['donoTerceiro','Dono terceiro'],
+  ['data','Data'], ['dataPgto','Data de pagamento'], ['dataReceb','Data de recebimento'], ['dataPrev','Data prevista'], ['dataEmp','Data do empréstimo'], ['dataAcordada','Vencimento'], ['dataLimite','Data limite'],
+  ['status','Status'], ['formaPgto','Forma de pagamento'], ['necessario','Necessário'], ['destino','Destino'], ['obs','Observação']
+ ];
+ for (const [key,label] of map) {
+  if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+   let v = obj[key];
+   if (['valor','valorMeta'].includes(key)) v = fmt(Number(v)||0);
+   if (key.toLowerCase().includes('data')) v = fmtDate(v);
+   rows.push([label, v]);
+  }
+ }
+ return rows;
 }
 
 function aiEntityLabel(e) {
@@ -2391,6 +2422,16 @@ async function sendChat() {
  const input = document.getElementById('chatInput');
  const text = input ? input.value.trim() : '';
  if (!text) return;
+
+ const localAction = tryBuildLocalFollowupAction(text);
+ if (localAction) {
+  chatHistory.push({ role: 'user', content: text });
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  pendingAiAction = localAction;
+  chatHistory.push({ role: 'assistant', content: 'Preparei a atualização com base na última alteração. Revise e confirme para aplicar.' });
+  renderChatMessages(false);
+  return;
+ }
 
  chatHistory.push({ role: 'user', content: text });
  if (input) { input.value = ''; input.style.height = 'auto'; }
@@ -2479,6 +2520,7 @@ function normalizeAiAction(action) {
   entity,
   operation,
   targetId: raw.targetId || raw.id || payload.id || null,
+  targetName: raw.targetName || raw.nome || raw.cliente || payload.nome || payload.cliente || raw.search || raw.query || '',
   payload: normalizeAiPayloadFields(payload),
   summary: raw.summary || raw.resumo || raw.confirmationText || raw.descricao || ''
  };
@@ -2534,9 +2576,78 @@ function cancelAiAction() {
  renderChatMessages(false);
 }
 
+
+function removeAccentsLower(v) {
+ return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+
+function todayOrDateFromPayload(p) {
+ return p.dataPgto || p.data || p.dataReceb || p.dataPrev || todayISO();
+}
+
+function tryBuildLocalFollowupAction(text) {
+ const t = removeAccentsLower(text);
+ if (!LAST_AI_APPLIED_ACTION) return null;
+ const isPaidFollowup = /\b(ja foi paga|ja foi pago|foi paga|foi pago|paga|pago|quitar|quitada|quitado)\b/.test(t);
+ if (isPaidFollowup && LAST_AI_APPLIED_ACTION.entity === 'despesas' && LAST_AI_APPLIED_ACTION.targetId) {
+  const p = LAST_AI_APPLIED_ACTION.payload || {};
+  return {
+   entity:'despesas',
+   operation:'update',
+   targetId:LAST_AI_APPLIED_ACTION.targetId,
+   targetName:p.desc || p.descricao || 'última despesa criada',
+   payload:{ dataPgto: p.data || todayISO() },
+   summary:'Marcar a última despesa criada pela IA como paga.'
+  };
+ }
+ return null;
+}
+
+function findBestAiRecord(entity, action) {
+ const p = action.payload || {};
+ const terms = [action.targetName, p.nome, p.cliente, p.descricao, p.desc, p.sub, p.obs, action.summary]
+  .filter(Boolean).map(removeAccentsLower).filter(Boolean);
+ const arrays = { receitas:DATA.receitas, despesas:DATA.despesas, emprestimos:DATA.emprestimos, devolucoes:DATA.devolucoes, investimentos:DATA.investimentos };
+ let arr = arrays[entity] || [];
+ if (entity === 'metas') arr = (DATA.metas && DATA.metas.lista) || [];
+ if (!arr.length || !terms.length) return null;
+ const candidates = arr.map(item => {
+  const hay = removeAccentsLower([item.nome,item.cliente,item.descricao,item.desc,item.sub,item.obs,item.categoria,item.destino,item.tipo].filter(Boolean).join(' '));
+  let score = 0;
+  for (const term of terms) {
+   const words = term.split(/\s+/).filter(w => w.length >= 3);
+   if (hay.includes(term)) score += 20;
+   for (const w of words) if (hay.includes(w)) score += 4;
+  }
+  // Prefer open loans when updating loans unless payload explicitly has dataPgto.
+  if (entity === 'emprestimos' && !item.dataPgto) score += 3;
+  // Prefer recent unpaid expenses for payment follow-up.
+  if (entity === 'despesas' && !item.dataPgto) score += 2;
+  return { item, score };
+ }).filter(x => x.score > 0).sort((a,b) => b.score - a.score);
+ if (!candidates.length) return null;
+ const top = candidates[0];
+ const tied = candidates.filter(c => c.score === top.score);
+ if (tied.length > 1 && top.score < 24) {
+  throw new Error('Encontrei mais de um registro possível. Informe mais detalhes, como nome completo, valor ou data.');
+ }
+ return top.item;
+}
+
+function ensureAiActionTarget(action) {
+ if (action.targetId) return action;
+ if (!['update','delete'].includes(action.operation)) return action;
+ const found = findBestAiRecord(action.entity, action);
+ if (!found) throw new Error('Não localizei o registro para alterar. Informe nome, valor ou data do registro.');
+ action.targetId = found.id;
+ action.targetName = found.nome || found.descricao || found.desc || found.sub || String(found.id);
+ return action;
+}
+
 function applyAiAction(action) {
  action = normalizeAiAction(action);
  if (!action) throw new Error('Ação inválida.');
+ action = ensureAiActionTarget(action);
  const entity = action.entity;
  const op = action.operation;
  const p = action.payload || {};
@@ -2551,33 +2662,56 @@ function applyAiAction(action) {
 function aiCreate(entity, p) {
  ensureMetasFormat();
  if (entity === 'receitas') {
-  DATA.receitas.push({ id: nextId(DATA.receitas), dataPrev:p.dataPrev || p.data || todayISO(), categoria:p.categoria || 'Outros', valor: Number(p.valor)||0, descricao:p.descricao || 'Receita lançada pela IA', dataReceb:p.dataReceb || p.data || todayISO() });
+  const id = nextId(DATA.receitas);
+  const rec = { id, dataPrev:p.dataPrev || p.data || todayISO(), categoria:p.categoria || 'Outros', valor: Number(p.valor)||0, descricao:p.descricao || p.desc || 'Receita lançada pela IA', dataReceb:p.dataReceb || p.data || todayISO() };
+  DATA.receitas.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
   return 'Receita criada com sucesso.';
  }
  if (entity === 'despesas') {
-  DATA.despesas.push({ id: nextId(DATA.despesas), data:p.data || todayISO(), categoria:p.categoria || 'Outros', sub:p.sub || '', valor: Number(p.valor)||0, formaPgto:p.formaPgto || '', necessario:p.necessario || '', desc:p.desc || p.descricao || 'Despesa lançada pela IA', dataPgto:p.dataPgto || null });
-  return 'Despesa criada com sucesso.';
+  const id = nextId(DATA.despesas);
+  const paidWords = removeAccentsLower([p.status,p.situacao,p.obs,p.desc,p.descricao].join(' '));
+  const shouldMarkPaid = !!p.dataPgto || /\b(pago|paga|paguei|quitado|quitada)\b/.test(paidWords);
+  const rec = { id, data:p.data || todayISO(), categoria:p.categoria || 'Outros', sub:p.sub || '', valor: Number(p.valor)||0, formaPgto:p.formaPgto || '', necessario:p.necessario || '', desc:p.desc || p.descricao || 'Despesa lançada pela IA', dataPgto: shouldMarkPaid ? (p.dataPgto || p.data || todayISO()) : null };
+  DATA.despesas.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
+  return rec.dataPgto ? 'Despesa criada e marcada como paga.' : 'Despesa criada com sucesso.';
  }
  if (entity === 'emprestimos') {
-  DATA.emprestimos.push({ id: nextId(DATA.emprestimos), nome:p.nome || 'Cliente', contato:p.contato || '', dataEmp:p.dataEmp || p.data || todayISO(), dataAcordada:p.dataAcordada || null, dataPgto:p.dataPgto || null, valor:Number(p.valor)||0, juros:Number(p.juros)||0, origem:p.origem || 'Próprio', donoTerceiro:p.donoTerceiro || '', obs:p.obs || '' });
+  const id = nextId(DATA.emprestimos);
+  const rec = { id, nome:p.nome || 'Cliente', contato:p.contato || '', dataEmp:p.dataEmp || p.data || todayISO(), dataAcordada:p.dataAcordada || null, dataPgto:p.dataPgto || null, valor:Number(p.valor)||0, juros:Number(p.juros)||0, origem:p.origem || 'Próprio', donoTerceiro:p.donoTerceiro || '', obs:p.obs || '' };
+  DATA.emprestimos.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
   return 'Empréstimo criado com sucesso.';
  }
  if (entity === 'metas') {
-  DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome:p.nome || 'Nova meta', valorMeta:Number(p.valorMeta || p.valor)||0, status:p.status || 'Ativa', dataLimite:p.dataLimite || p.data || '', obs:p.obs || '', aportes:[] });
+  const id = nextId(DATA.metas.lista);
+  const rec = { id, nome:p.nome || 'Nova meta', valorMeta:Number(p.valorMeta || p.valor)||0, status:p.status || 'Ativa', dataLimite:p.dataLimite || p.data || '', obs:p.obs || '', aportes:[] };
+  DATA.metas.lista.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
   return 'Meta criada com sucesso.';
  }
  if (entity === 'aportes_metas') {
   const meta = findMetaForAi(p);
   if (!meta) throw new Error('Meta não encontrada para adicionar aporte.');
-  meta.aportes.push({ id: nextId(meta.aportes), data:p.data || todayISO(), valor:Number(p.valor)||0, origem:p.origem || '', obs:p.obs || 'Aporte lançado pela IA' });
+  const id = nextId(meta.aportes);
+  const rec = { id, data:p.data || todayISO(), valor:Number(p.valor)||0, origem:p.origem || '', obs:p.obs || 'Aporte lançado pela IA' };
+  meta.aportes.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
   return 'Aporte adicionado à meta.';
  }
  if (entity === 'devolucoes') {
-  DATA.devolucoes.push({ id: nextId(DATA.devolucoes), data:p.data || todayISO(), valor:Number(p.valor)||0, destino:p.destino || '', obs:p.obs || '' });
+  const id = nextId(DATA.devolucoes);
+  const rec = { id, data:p.data || todayISO(), valor:Number(p.valor)||0, destino:p.destino || '', obs:p.obs || '' };
+  DATA.devolucoes.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
   return 'Devolução criada com sucesso.';
  }
  if (entity === 'investimentos') {
-  DATA.investimentos.push({ id: nextId(DATA.investimentos), data:p.data || todayISO(), tipo:p.tipo || '', movimento:p.movimento || 'Aporte', valor:Number(p.valor)||0, descricao:p.descricao || '' });
+  const id = nextId(DATA.investimentos);
+  const rec = { id, data:p.data || todayISO(), tipo:p.tipo || '', movimento:p.movimento || 'Aporte', valor:Number(p.valor)||0, descricao:p.descricao || '' };
+  DATA.investimentos.push(rec);
+  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
   return 'Investimento criado com sucesso.';
  }
  throw new Error('Área não suportada para criação.');
@@ -2591,13 +2725,14 @@ function aiUpdate(entity, id, p) {
   const meta = DATA.metas.lista.find(x => Number(x.id) === id);
   if (!meta) throw new Error('Meta não encontrada.');
   Object.assign(meta, cleanAiPayload(p));
+  LAST_AI_APPLIED_ACTION = { entity, operation:'update', targetId:id, payload:meta };
   return 'Meta atualizada com sucesso.';
  }
  if (entity === 'aportes_metas') {
   ensureMetasFormat();
   for (const meta of DATA.metas.lista) {
    const aporte = (meta.aportes || []).find(x => Number(x.id) === id);
-   if (aporte) { Object.assign(aporte, cleanAiPayload(p)); return 'Aporte atualizado com sucesso.'; }
+   if (aporte) { Object.assign(aporte, cleanAiPayload(p)); LAST_AI_APPLIED_ACTION = { entity, operation:'update', targetId:id, payload:aporte }; return 'Aporte atualizado com sucesso.'; }
   }
   throw new Error('Aporte não encontrado.');
  }
@@ -2606,6 +2741,7 @@ function aiUpdate(entity, id, p) {
  const item = arr.find(x => Number(x.id) === id);
  if (!item) throw new Error('Registro não encontrado.');
  Object.assign(item, cleanAiPayload(p));
+ LAST_AI_APPLIED_ACTION = { entity, operation:'update', targetId:id, payload:item };
  return 'Registro atualizado com sucesso.';
 }
 
