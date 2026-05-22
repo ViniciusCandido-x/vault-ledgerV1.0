@@ -421,6 +421,48 @@
   .landing-panel{backdrop-filter:blur(8px)}
   .landing-headline{color:#14233A}
 
+
+  /* V2.6 - Análise e Metas aprimoradas */
+  .analysis-mode-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 14px}
+  .analysis-mode-tabs button{border:1.5px solid var(--border);background:#fff;color:var(--text-secondary);border-radius:14px;padding:10px 8px;font-size:12px;font-weight:800;font-family:var(--ff);cursor:pointer;box-shadow:var(--sh)}
+  .analysis-mode-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 10px 22px rgba(37,99,235,.18)}
+  .analysis-insights{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:840px){.analysis-insights{grid-template-columns:1fr 1fr}}
+  .insight-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--sh);min-height:100%}
+  .insight-title{font-family:var(--fh);font-weight:800;font-size:14px;color:var(--text);margin-bottom:8px}
+  .insight-line{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding:9px 0;font-size:13px;color:var(--text-secondary)}
+  .insight-line:last-child{border-bottom:none}
+  .insight-line strong{color:var(--text)}
+  .analysis-empty-note{font-size:13px;color:var(--text-muted);line-height:1.6;text-align:center;padding:22px 12px}
+  .meta-card-v2{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--sh);padding:16px;margin-bottom:14px}
+  .meta-head-v2{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+  .meta-title-v2{font-family:var(--fh);font-size:16px;font-weight:800;color:var(--text);word-break:break-word}
+  .meta-ring-area{display:grid;grid-template-columns:132px 1fr;gap:14px;align-items:center;margin:12px 0}
+  @media(max-width:520px){.meta-ring-area{grid-template-columns:1fr;justify-items:center;text-align:center}.meta-details-v2{width:100%}}
+  .meta-ring-wrap{position:relative;width:132px;height:132px;display:flex;align-items:center;justify-content:center}
+  .meta-ring-wrap svg{position:absolute;inset:0;transform:rotate(-90deg)}
+  .meta-percent-center{position:relative;z-index:2;font-family:var(--fh);font-size:24px;font-weight:800;color:var(--accent);letter-spacing:-.5px}
+  .meta-details-v2{display:grid;gap:8px}
+  .meta-detail-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding:7px 0;font-size:13px;color:var(--text-secondary)}
+  .meta-detail-row:last-child{border-bottom:none}
+  .meta-detail-row strong{color:var(--text)}
+  .meta-deadline{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;white-space:nowrap}
+  .meta-deadline.ok{background:var(--accent-light);color:var(--accent)}
+  .meta-deadline.warn{background:var(--warning-light);color:var(--warning)}
+  .meta-deadline.danger{background:var(--danger-light);color:var(--danger)}
+  .meta-deadline.success{background:var(--success-light);color:var(--success)}
+
+
+  .ai-action-card{background:#fff;border:1.5px solid var(--accent);border-radius:16px;padding:14px;margin:10px 0 0 36px;box-shadow:var(--sh-md)}
+  .ai-action-title{font-family:var(--fh);font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px}
+  .ai-action-desc{font-size:13px;color:var(--text-secondary);line-height:1.55;margin-bottom:12px}
+  .ai-action-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px}
+  .ai-action-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border);padding:6px 0;font-size:12px}
+  .ai-action-row span:first-child{color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .ai-action-row span:last-child{color:var(--text);font-weight:600;text-align:right}
+  .ai-action-buttons{display:flex;gap:8px;flex-wrap:wrap}
+  .ai-action-buttons .btn{flex:1;min-width:130px}
+
 </style>
 </head>
 <body>
@@ -638,7 +680,8 @@ function ensureMetasFormat() {
   if (!m.id) m.id = idx + 1;
   if (!m.nome) m.nome = 'Meta sem nome';
   if (!m.status) m.status = 'Ativa';
-  if (!Array.isArray(m.aportes)) m.aportes = [];
+  if (m.dataLimite === undefined) m.dataLimite = '';
+   if (!Array.isArray(m.aportes)) m.aportes = [];
   m.aportes.forEach((a, aidx) => { if (!a.id) a.id = aidx + 1; });
  });
 }
@@ -692,6 +735,8 @@ let CURRENT_PERIOD = {
  month: 5,
  year: 2026
 };
+
+let ANALISE_VIEW = 'mensal';
 
 // ============================================================
 // CÁLCULOS
@@ -1624,22 +1669,20 @@ function renderMetas() {
  const metas = DATA.metas.lista;
  const totalAcumulado = calcMetaAcumulada();
  const totalAlvo = calcMetaValorTotal();
+ const metasAtivas = metas.filter(m => m.status !== 'Arquivada').length;
+ const concluidas = metas.filter(m => m.status === 'Concluída' || ((m.aportes || []).reduce((s,a)=>s+(a.valor||0),0) >= (m.valorMeta||0) && (m.valorMeta||0)>0)).length;
 
  return `
   <div class="section">
    <div class="section-title">
-    <span> Metas financeiras</span>
+    <span>Metas financeiras</span>
     <button class="filter-btn" onclick="openMetaModal(null)" style="padding:6px 10px">+ Nova meta</button>
    </div>
-   <div class="cards-grid">
-    <div class="card warning">
-     <div class="card-label">Reservado em metas</div>
-     <div class="card-value">${fmt(totalAcumulado)}</div>
-    </div>
-    <div class="card">
-     <div class="card-label">Total dos objetivos</div>
-     <div class="card-value">${fmt(totalAlvo)}</div>
-    </div>
+   <div class="metric-grid">
+    <div class="metric-card warning"><div class="metric-label">Reservado</div><div class="metric-value">${fmt(totalAcumulado)}</div><div class="metric-note">Total aportado</div></div>
+    <div class="metric-card"><div class="metric-label">Objetivo total</div><div class="metric-value">${fmt(totalAlvo)}</div><div class="metric-note">Soma das metas ativas</div></div>
+    <div class="metric-card success"><div class="metric-label">Concluídas</div><div class="metric-value">${concluidas}</div><div class="metric-note">Metas atingidas</div></div>
+    <div class="metric-card purple"><div class="metric-label">Ativas</div><div class="metric-value">${metasAtivas}</div><div class="metric-note">Em acompanhamento</div></div>
    </div>
    <div style="font-size:12px;color:var(--text-muted);line-height:1.5">
     Aporte em meta reduz o saldo disponível, mas continua entrando no patrimônio como dinheiro reservado.
@@ -1647,65 +1690,89 @@ function renderMetas() {
   </div>
 
   ${metas.length === 0 ? `
-   <div class="empty"><div class="empty-icon"></div><div>Nenhuma meta cadastrada.</div></div>
-  ` : metas.map(meta => {
-   const acumulado = (meta.aportes || []).reduce((s, a) => s + (a.valor || 0), 0);
-   const alvo = meta.valorMeta || 0;
-   const progresso = alvo > 0 ? Math.min(acumulado / alvo, 1) : 0;
-   const falta = Math.max(0, alvo - acumulado);
-   const r = 46;
-   const circ = 2 * Math.PI * r;
-   const offset = circ * (1 - progresso);
-   return `
-   <div class="section">
-    <div class="section-title">
-     <span>${esc(meta.nome)}</span>
-     <span class="tag tag-${meta.status === 'Concluída' ? 'success' : meta.status === 'Arquivada' ? 'muted' : 'accent'}">${esc(meta.status)}</span>
-    </div>
+   <div class="empty"><div>Nenhuma meta cadastrada.</div></div>
+  ` : metas.map(meta => renderMetaCard(meta)).join('')}
+ `;
+}
 
-    <div class="progress-ring">
-     <svg class="progress-ring-svg" width="124" height="124">
-      <circle class="progress-ring-circle" cx="62" cy="62" r="${r}"></circle>
-      <circle class="progress-ring-fill" cx="62" cy="62" r="${r}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle>
-     </svg>
-     <div>
-      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Acumulado</div>
-      <div style="font-size:24px;font-weight:700;color:var(--accent)">${fmt(acumulado)}</div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${(progresso*100).toFixed(0)}% de ${fmt(alvo)}</div>
-      ${falta > 0 ? `<div style="font-size:12px;color:var(--warning);margin-top:4px">Faltam ${fmt(falta)}</div>` : `<div style="font-size:12px;color:var(--success);margin-top:4px">Meta atingida</div>`}
+function renderMetaCard(meta) {
+ const acumulado = (meta.aportes || []).reduce((s, a) => s + (a.valor || 0), 0);
+ const alvo = meta.valorMeta || 0;
+ const progresso = alvo > 0 ? Math.min(acumulado / alvo, 1) : 0;
+ const pct = Math.round(progresso * 100);
+ const falta = Math.max(0, alvo - acumulado);
+ const r = 52;
+ const circ = 2 * Math.PI * r;
+ const offset = circ * (1 - progresso);
+ const deadline = metaDeadlineInfo(meta);
+ return `
+  <div class="meta-card-v2">
+   <div class="meta-head-v2">
+    <div>
+     <div class="meta-title-v2">${esc(meta.nome)}</div>
+     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <span class="tag tag-${meta.status === 'Concluída' ? 'success' : meta.status === 'Arquivada' ? 'muted' : 'accent'}">${esc(meta.status)}</span>
+      ${deadline.label ? `<span class="meta-deadline ${deadline.cls}">${deadline.label}</span>` : ''}
      </div>
     </div>
+    <button class="filter-btn" onclick="openMetaModal(${meta.id})" style="padding:7px 10px">Editar</button>
+   </div>
 
-    ${meta.obs ? `<div style="font-size:13px;color:var(--text-secondary);margin:8px 0 12px">${esc(meta.obs)}</div>` : ''}
-
-    <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap">
-     <button class="filter-btn" onclick="openMetaModal(${meta.id})">Editar meta</button>
-     <button class="filter-btn" onclick="openAporteModal(${meta.id}, null)">+ Aporte</button>
+   <div class="meta-ring-area">
+    <div class="meta-ring-wrap">
+     <svg width="132" height="132" viewBox="0 0 132 132">
+      <circle class="progress-ring-circle" cx="66" cy="66" r="${r}"></circle>
+      <circle class="progress-ring-fill" cx="66" cy="66" r="${r}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle>
+     </svg>
+     <div class="meta-percent-center">${pct}%</div>
     </div>
-
-    <div style="border-top:1px solid var(--border);padding-top:10px">
-     <div class="section-title" style="margin-bottom:8px">Aportes/depósitos</div>
-     ${(meta.aportes || []).length === 0 ? `
-      <div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px">Nenhum aporte ainda.</div>
-     ` : (meta.aportes || []).slice().sort((a,b)=>(aporteDateISO(b)||'').localeCompare(aporteDateISO(a)||'')).map(a => `
-      <div class="list-item" onclick="openAporteModal(${meta.id}, ${a.id})">
-       <div class="list-item-header">
-        <div>
-         <div class="list-item-title">${fmtDate(aporteDateISO(a))}</div>
-         <div class="list-item-meta">
-          <span class="tag tag-accent">${esc(a.origem || '-')}</span>
-          ${a.obs ? `<span>${esc(a.obs)}</span>` : ''}
-         </div>
-        </div>
-        <div class="list-item-value" style="color:var(--success)">${fmt(a.valor)}</div>
-       </div>
-      </div>
-     `).join('')}
+    <div class="meta-details-v2">
+     <div class="meta-detail-row"><span>Acumulado</span><strong style="color:var(--accent)">${fmt(acumulado)}</strong></div>
+     <div class="meta-detail-row"><span>Objetivo</span><strong>${fmt(alvo)}</strong></div>
+     <div class="meta-detail-row"><span>Falta</span><strong style="color:${falta > 0 ? 'var(--warning)' : 'var(--success)'}">${falta > 0 ? fmt(falta) : 'Meta atingida'}</strong></div>
+     <div class="meta-detail-row"><span>Data limite</span><strong>${meta.dataLimite ? fmtDate(meta.dataLimite) : 'Sem prazo'}</strong></div>
     </div>
    </div>
-   `;
-  }).join('')}
- `;
+
+   ${meta.obs ? `<div style="font-size:13px;color:var(--text-secondary);margin:8px 0 12px;line-height:1.55">${esc(meta.obs)}</div>` : ''}
+
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">
+    <button class="filter-btn" onclick="openMetaModal(${meta.id})">Editar meta</button>
+    <button class="filter-btn" onclick="openAporteModal(${meta.id}, null)">+ Aporte</button>
+   </div>
+
+   <div style="border-top:1px solid var(--border);padding-top:10px">
+    <div class="section-title" style="margin-bottom:8px">Aportes/depósitos</div>
+    ${(meta.aportes || []).length === 0 ? `
+     <div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px">Nenhum aporte ainda.</div>
+    ` : (meta.aportes || []).slice().sort((a,b)=>(aporteDateISO(b)||'').localeCompare(aporteDateISO(a)||'')).map(a => `
+     <div class="list-item" onclick="openAporteModal(${meta.id}, ${a.id})">
+      <div class="list-item-header">
+       <div>
+        <div class="list-item-title">${fmtDate(aporteDateISO(a))}</div>
+        <div class="list-item-meta">
+         <span class="tag tag-accent">${esc(a.origem || '-')}</span>
+         ${a.obs ? `<span>${esc(a.obs)}</span>` : ''}
+        </div>
+       </div>
+       <div class="list-item-value" style="color:var(--success)">${fmt(a.valor)}</div>
+      </div>
+     </div>
+    `).join('')}
+   </div>
+  </div>`;
+}
+
+function metaDeadlineInfo(meta) {
+ if (!meta || !meta.dataLimite) return { label:'', cls:'ok' };
+ if (meta.status === 'Concluída') return { label:'Concluída no prazo', cls:'success' };
+ const due = parseDate(meta.dataLimite);
+ if (!due) return { label:'Prazo inválido', cls:'danger' };
+ const today = new Date(); today.setHours(0,0,0,0);
+ const days = Math.ceil((due - today) / 86400000);
+ if (days < 0) return { label:`Vencida há ${Math.abs(days)} dia(s)`, cls:'danger' };
+ if (days <= 7) return { label:`Vence em ${days} dia(s)`, cls:'warn' };
+ return { label:`${days} dia(s) restantes`, cls:'ok' };
 }
 
 // ============================================================
@@ -1759,7 +1826,6 @@ function renderAnalise() {
   const m = CURRENT_PERIOD.month;
   const ano = CURRENT_PERIOD.year;
   const mesNome = MESES_NOMES[m - 1];
-
   const years = getAnalysisYears();
   const receitasMes = calcReceitasMes(m, ano);
   const despesasPagas = calcDespesasPagas(m, ano);
@@ -1767,42 +1833,41 @@ function renderAnalise() {
   const resultadoMes = receitasMes - despesasPagas;
   const jurosMes = calcReceitasMes(m, ano, 'Juros');
   const recebimentosPendentes = DATA.receitas.filter(r => !r.dataReceb && r.dataPrev && parseDate(r.dataPrev)?.getMonth()+1 === m && parseDate(r.dataPrev)?.getFullYear() === ano).reduce((s,r)=>s+(r.valor||0),0);
-  const emprestimosAbertos = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago').reduce((s,e)=>s+(e.valor||0),0);
-  const atrasados = DATA.emprestimos.filter(e => getStatus(e) === 'Atrasado').length;
-  const metasReservado = calcMetaAcumulada();
+  const atrasados = DATA.emprestimos.filter(e => getStatus(e) === 'Atrasado');
+  const abertos = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago');
 
   const dadosAno = MESES_NOMES.map((mes, i) => {
     const mm = i + 1;
     const rec = calcReceitasMes(mm, ano);
     const despPagas = calcDespesasPagas(mm, ano);
     const despPend = calcDespesasPendentes(mm, ano);
-    const desp = despPagas + despPend;
     const juros = calcReceitasMes(mm, ano, 'Juros');
-    return { mes, rec, desp, despPagas, despPend, resultado: rec - despPagas, juros };
+    return { mes, rec, despPagas, despPend, resultado: rec - despPagas, juros };
   });
   const totais = {
     rec: dadosAno.reduce((s,d) => s + d.rec, 0),
     desp: dadosAno.reduce((s,d) => s + d.despPagas, 0),
-    despTotal: dadosAno.reduce((s,d) => s + d.desp, 0),
+    pend: dadosAno.reduce((s,d) => s + d.despPend, 0),
     resultado: dadosAno.reduce((s,d) => s + d.resultado, 0),
     juros: dadosAno.reduce((s,d) => s + d.juros, 0),
   };
-
-  const annualSeries = dadosAno.map(d => ({ label: d.mes.substring(0,3), values: [d.rec, d.despPagas] }));
-  const chartHTML = renderBarChart(annualSeries, ['var(--success)', 'var(--danger)'], Math.max(...dadosAno.map(d => Math.max(d.rec, d.despPagas)), 100), { large: true });
-
   const catsMonth = getExpenseCategoryData(m, ano, false);
-  const totalCatMonth = catsMonth.reduce((s,x)=>s+x.valor,0);
-  const maiorCat = catsMonth[0];
   const catsYear = getExpenseCategoryData(null, ano, true);
+  const totalCatMonth = catsMonth.reduce((s,x)=>s+x.valor,0);
   const totalCatYear = catsYear.reduce((s,x)=>s+x.valor,0);
+  const maiorCat = catsMonth[0];
+  const melhorMes = dadosAno.slice().sort((a,b)=>b.resultado-a.resultado)[0];
+  const piorMes = dadosAno.slice().sort((a,b)=>a.resultado-b.resultado)[0];
+
+  const annualSeries = dadosAno.map(d => ({ label: d.mes.substring(0,3), values: [d.rec, d.despPagas, d.despPend] }));
+  const chartHTML = renderBarChart(annualSeries, ['var(--success)', 'var(--danger)', 'var(--warning)'], Math.max(...dadosAno.map(d => Math.max(d.rec, d.despPagas, d.despPend)), 100), { large: true });
 
   const yearTotals = years.map(y => {
     const rec = MESES_NOMES.reduce((s,_,idx)=>s+calcReceitasMes(idx+1,y),0);
     const desp = MESES_NOMES.reduce((s,_,idx)=>s+calcDespesasPagas(idx+1,y),0);
     return { label:String(y), values:[rec, desp], rec, desp, result:rec-desp };
   });
-  const yearChart = renderBarChart(yearTotals, ['var(--success)', 'var(--danger)'], Math.max(...yearTotals.map(d=>Math.max(d.rec,d.desp)),100), { large:false });
+  const yearChart = renderBarChart(yearTotals, ['var(--success)', 'var(--danger)'], Math.max(...yearTotals.map(d=>Math.max(d.rec,d.desp)),100), { large:true });
 
   const diag = resultadoMes >= 0
     ? `No mês selecionado, o resultado está positivo em <strong>${fmt(resultadoMes)}</strong>.`
@@ -1810,76 +1875,80 @@ function renderAnalise() {
 
   return `
     <div class="section">
-      <div class="section-title">Análise financeira</div>
+      <div class="section-title">Central de análise financeira</div>
       ${periodSelector()}
       <div class="analysis-year-strip">
         ${years.map(y => `<button class="year-pill ${y===ano?'active':''}" onclick="setAnalysisYear(${y})">${y}</button>`).join('')}
         ${!years.includes(ano+1) ? `<button class="year-pill" onclick="setAnalysisYear(${ano+1})">${ano+1}</button>` : ''}
       </div>
+      <div class="analysis-mode-tabs">
+        <button class="${ANALISE_VIEW==='mensal'?'active':''}" onclick="setAnalysisView('mensal')">Mês</button>
+        <button class="${ANALISE_VIEW==='anual'?'active':''}" onclick="setAnalysisView('anual')">Ano</button>
+        <button class="${ANALISE_VIEW==='comparativo'?'active':''}" onclick="setAnalysisView('comparativo')">Comparativo</button>
+      </div>
       <div class="diagnostic-box">
-        ${diag} ${maiorCat ? `A maior concentração de despesas do mês está em <strong>${maiorCat.cat}</strong>, com <strong>${fmt(maiorCat.valor)}</strong>.` : 'Não há despesas registradas por categoria neste mês.'}
-        ${atrasados > 0 ? ` Existem <strong>${atrasados}</strong> registro(s) em atraso que exigem atenção.` : ' Não há registros em atraso no momento.'}
+        ${diag} ${maiorCat ? `Maior categoria de despesa no mês: <strong>${maiorCat.cat}</strong>, com <strong>${fmt(maiorCat.valor)}</strong>.` : 'Não há despesas categorizadas neste mês.'}
+        ${atrasados.length > 0 ? ` Existem <strong>${atrasados.length}</strong> registro(s) em atraso.` : ' Não há registros em atraso no momento.'}
       </div>
     </div>
 
-    <div class="metric-grid">
-      <div class="metric-card success"><div class="metric-label">Receitas do mês</div><div class="metric-value">${fmt(receitasMes)}</div><div class="metric-note">Recebidas em ${mesNome}/${ano}</div></div>
-      <div class="metric-card danger"><div class="metric-label">Despesas pagas</div><div class="metric-value">${fmt(despesasPagas)}</div><div class="metric-note">Pagamentos confirmados</div></div>
-      <div class="metric-card warning"><div class="metric-label">Despesas pendentes</div><div class="metric-value">${fmt(despesasPend)}</div><div class="metric-note">Ainda em aberto</div></div>
-      <div class="metric-card ${resultadoMes >= 0 ? 'success' : 'danger'}"><div class="metric-label">Resultado</div><div class="metric-value">${fmt(resultadoMes)}</div><div class="metric-note">Receitas menos despesas pagas</div></div>
-    </div>
-
-    <div class="metric-grid">
-      <div class="metric-card"><div class="metric-label">Receitas pendentes</div><div class="metric-value">${fmt(recebimentosPendentes)}</div><div class="metric-note">Previstas e não recebidas</div></div>
-      <div class="metric-card success"><div class="metric-label">Juros recebidos</div><div class="metric-value">${fmt(jurosMes)}</div><div class="metric-note">Receitas da categoria Juros</div></div>
-      <div class="metric-card purple"><div class="metric-label">Em aberto</div><div class="metric-value">${fmt(emprestimosAbertos)}</div><div class="metric-note">Registros financeiros ainda não pagos</div></div>
-      <div class="metric-card warning"><div class="metric-label">Reservado em metas</div><div class="metric-value">${fmt(metasReservado)}</div><div class="metric-note">Total aportado nas metas</div></div>
-    </div>
-
-    <div class="analysis-grid-wide">
-      <div class="section">
-        <div class="section-title">Evolução mensal — ${ano}</div>
-        ${chartHTML}
-        <div class="chart-legend"><span class="legend-dot success">Receitas</span><span class="legend-dot danger">Despesas pagas</span></div>
-      </div>
-      <div class="section">
-        <div class="section-title">Despesas por categoria — ${ano}</div>
-        ${renderCategoryBars(catsYear, totalCatYear)}
-      </div>
-    </div>
-
-    <div class="analysis-grid-wide">
-      <div class="section">
-        <div class="section-title">Comparativo por ano</div>
-        ${yearChart}
-        <div class="chart-legend"><span class="legend-dot success">Receitas</span><span class="legend-dot danger">Despesas pagas</span></div>
-      </div>
-      <div class="section">
-        <div class="section-title">Despesas por categoria — ${mesNome}/${ano}</div>
-        ${renderCategoryBars(catsMonth, totalCatMonth)}
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Detalhamento anual</div>
-      <div class="table-wrapper">
-        <table class="table">
-          <thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas pagas</th><th class="num">Pendentes</th><th class="num">Resultado</th><th class="num">Juros</th></tr></thead>
-          <tbody>
-            ${dadosAno.map(d => `<tr>
-              <td><strong>${d.mes.substring(0,3)}</strong></td>
-              <td class="num">${fmt(d.rec)}</td>
-              <td class="num">${fmt(d.despPagas)}</td>
-              <td class="num">${fmt(d.despPend)}</td>
-              <td class="num" style="color:${d.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(d.resultado)}</td>
-              <td class="num" style="color:var(--success)">${fmt(d.juros)}</td>
-            </tr>`).join('')}
-            <tr style="background:var(--bg-elevated);font-weight:700"><td>Total</td><td class="num">${fmt(totais.rec)}</td><td class="num">${fmt(totais.desp)}</td><td class="num">${fmt(totais.despTotal - totais.desp)}</td><td class="num" style="color:${totais.resultado >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(totais.resultado)}</td><td class="num" style="color:var(--success)">${fmt(totais.juros)}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    ${ANALISE_VIEW === 'mensal' ? renderAnaliseMensal({m, ano, mesNome, receitasMes, despesasPagas, despesasPend, resultadoMes, jurosMes, recebimentosPendentes, abertos, atrasados, catsMonth, totalCatMonth}) : ''}
+    ${ANALISE_VIEW === 'anual' ? renderAnaliseAnual({ano, dadosAno, totais, catsYear, totalCatYear, chartHTML, melhorMes, piorMes}) : ''}
+    ${ANALISE_VIEW === 'comparativo' ? renderAnaliseComparativo({years, yearTotals, yearChart}) : ''}
   `;
+}
+
+function renderAnaliseMensal(ctx) {
+ const abertoValor = ctx.abertos.reduce((s,e)=>s+(e.valor||0),0);
+ return `
+  <div class="metric-grid">
+    <div class="metric-card success"><div class="metric-label">Receitas recebidas</div><div class="metric-value">${fmt(ctx.receitasMes)}</div><div class="metric-note">Entrada confirmada em ${ctx.mesNome}/${ctx.ano}</div></div>
+    <div class="metric-card danger"><div class="metric-label">Despesas pagas</div><div class="metric-value">${fmt(ctx.despesasPagas)}</div><div class="metric-note">Saídas confirmadas</div></div>
+    <div class="metric-card warning"><div class="metric-label">Pendências</div><div class="metric-value">${fmt(ctx.despesasPend)}</div><div class="metric-note">Despesas ainda abertas</div></div>
+    <div class="metric-card ${ctx.resultadoMes >= 0 ? 'success' : 'danger'}"><div class="metric-label">Resultado do mês</div><div class="metric-value">${fmt(ctx.resultadoMes)}</div><div class="metric-note">Receitas menos despesas pagas</div></div>
+  </div>
+  <div class="analysis-insights">
+    <div class="insight-card">
+      <div class="insight-title">Resumo do mês</div>
+      <div class="insight-line"><span>Receitas pendentes</span><strong>${fmt(ctx.recebimentosPendentes)}</strong></div>
+      <div class="insight-line"><span>Juros recebidos</span><strong style="color:var(--success)">${fmt(ctx.jurosMes)}</strong></div>
+      <div class="insight-line"><span>Registros em aberto</span><strong>${fmt(abertoValor)}</strong></div>
+      <div class="insight-line"><span>Atrasados</span><strong style="color:${ctx.atrasados.length?'var(--danger)':'var(--success)'}">${ctx.atrasados.length}</strong></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">Despesas por categoria</div>
+      ${renderCategoryBars(ctx.catsMonth, ctx.totalCatMonth)}
+    </div>
+  </div>`;
+}
+
+function renderAnaliseAnual(ctx) {
+ return `
+  <div class="metric-grid">
+    <div class="metric-card success"><div class="metric-label">Receitas no ano</div><div class="metric-value">${fmt(ctx.totais.rec)}</div><div class="metric-note">Recebidas em ${ctx.ano}</div></div>
+    <div class="metric-card danger"><div class="metric-label">Despesas pagas</div><div class="metric-value">${fmt(ctx.totais.desp)}</div><div class="metric-note">Pagas em ${ctx.ano}</div></div>
+    <div class="metric-card warning"><div class="metric-label">Pendentes no ano</div><div class="metric-value">${fmt(ctx.totais.pend)}</div><div class="metric-note">A vencer ou em aberto</div></div>
+    <div class="metric-card ${ctx.totais.resultado >= 0 ? 'success' : 'danger'}"><div class="metric-label">Resultado anual</div><div class="metric-value">${fmt(ctx.totais.resultado)}</div><div class="metric-note">Saldo operacional do ano</div></div>
+  </div>
+  <div class="analysis-grid-wide">
+    <div class="section"><div class="section-title">Evolução mensal — ${ctx.ano}</div>${ctx.chartHTML}<div class="chart-legend"><span class="legend-dot success">Receitas</span><span class="legend-dot danger">Despesas pagas</span><span class="legend-dot warning">Pendentes</span></div></div>
+    <div class="section"><div class="section-title">Despesas por categoria — ${ctx.ano}</div>${renderCategoryBars(ctx.catsYear, ctx.totalCatYear)}</div>
+  </div>
+  <div class="analysis-insights">
+    <div class="insight-card"><div class="insight-title">Leitura do ano</div><div class="insight-line"><span>Melhor mês</span><strong>${ctx.melhorMes?.mes || '-'} — ${fmt(ctx.melhorMes?.resultado || 0)}</strong></div><div class="insight-line"><span>Mês mais fraco</span><strong>${ctx.piorMes?.mes || '-'} — ${fmt(ctx.piorMes?.resultado || 0)}</strong></div><div class="insight-line"><span>Juros recebidos</span><strong style="color:var(--success)">${fmt(ctx.totais.juros)}</strong></div></div>
+    <div class="insight-card"><div class="insight-title">Detalhamento anual</div><div class="table-wrapper"><table class="table"><thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Pendentes</th><th class="num">Resultado</th></tr></thead><tbody>${ctx.dadosAno.map(d=>`<tr><td><strong>${d.mes.substring(0,3)}</strong></td><td class="num">${fmt(d.rec)}</td><td class="num">${fmt(d.despPagas)}</td><td class="num">${fmt(d.despPend)}</td><td class="num" style="color:${d.resultado>=0?'var(--success)':'var(--danger)'}">${fmt(d.resultado)}</td></tr>`).join('')}</tbody></table></div></div>
+  </div>`;
+}
+
+function renderAnaliseComparativo(ctx) {
+ return `
+  <div class="section"><div class="section-title">Comparativo por ano</div>${ctx.yearChart}<div class="chart-legend"><span class="legend-dot success">Receitas</span><span class="legend-dot danger">Despesas pagas</span></div></div>
+  <div class="section"><div class="section-title">Resumo por ano</div><div class="table-wrapper"><table class="table"><thead><tr><th>Ano</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Resultado</th></tr></thead><tbody>${ctx.yearTotals.map(y=>`<tr><td><strong>${y.label}</strong></td><td class="num">${fmt(y.rec)}</td><td class="num">${fmt(y.desp)}</td><td class="num" style="color:${y.result>=0?'var(--success)':'var(--danger)'}">${fmt(y.result)}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+function setAnalysisView(view) {
+  ANALISE_VIEW = view;
+  render();
 }
 
 function getAnalysisYears() {
@@ -1915,7 +1984,7 @@ function getExpenseCategoryData(month, year, wholeYear = false) {
 }
 
 function renderCategoryBars(data, total) {
-  if (!data || data.length === 0) return `<div class="empty" style="padding:24px">Nenhuma despesa encontrada neste período.</div>`;
+  if (!data || data.length === 0) return `<div class="analysis-empty-note">Nenhuma despesa encontrada neste período.</div>`;
   return data.map(({cat, valor}) => {
     const pct = total > 0 ? (valor / total) * 100 : 0;
     return `
@@ -1930,7 +1999,6 @@ function renderBarChart(data, colors, maxVal, opts = {}) {
  const barGroupWidth = (W - 34) / safeData.length;
  const numSeries = safeData[0].values.length;
  const barWidth = Math.max(7, (barGroupWidth - 7) / numSeries);
- 
  let bars = '';
  safeData.forEach((d, i) => {
   d.values.forEach((v, j) => {
@@ -1941,16 +2009,8 @@ function renderBarChart(data, colors, maxVal, opts = {}) {
   });
   bars += `<text class="chart-label" x="${18 + i * barGroupWidth + barGroupWidth/2}" y="${H - 8}" text-anchor="middle">${d.label}</text>`;
  });
- 
  const gridY1 = H - 28;
- return `<div class="chart-container ${opts.large ? 'large' : ''}">
-  <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-   <line class="chart-grid" x1="18" y1="${gridY1}" x2="${W-16}" y2="${gridY1}"></line>
-   <line class="chart-grid" x1="18" y1="${Math.round(gridY1*0.66)}" x2="${W-16}" y2="${Math.round(gridY1*0.66)}"></line>
-   <line class="chart-grid" x1="18" y1="${Math.round(gridY1*0.33)}" x2="${W-16}" y2="${Math.round(gridY1*0.33)}"></line>
-   ${bars}
-  </svg>
- </div>`;
+ return `<div class="chart-container ${opts.large ? 'large' : ''}"><svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><line class="chart-grid" x1="18" y1="${gridY1}" x2="${W-16}" y2="${gridY1}"></line><line class="chart-grid" x1="18" y1="${Math.round(gridY1*0.66)}" x2="${W-16}" y2="${Math.round(gridY1*0.66)}"></line><line class="chart-grid" x1="18" y1="${Math.round(gridY1*0.33)}" x2="${W-16}" y2="${Math.round(gridY1*0.33)}"></line>${bars}</svg></div>`;
 }
 
 // ============================================================
@@ -2168,103 +2228,83 @@ function deleteDevolucao(id) {
  showToast('Devolução excluída');
 }
 
+
 // ============================================================
-// PAGE: IA — Chat financeiro com Claude
+// PAGE: IA — Assistente financeiro com OpenAI via Supabase
 // ============================================================
 let chatHistory = [];
 let chatLoading = false;
+let pendingAiAction = null;
 
-function buildFinancialContext() {
- const saldo = calcSaldoAtual();
- const m = CURRENT_PERIOD.month, a = CURRENT_PERIOD.year;
- const rec = calcReceitasMes(m, a);
- const desp = calcDespesasPagas(m, a);
- const pend = calcDespesasPendentes(m, a);
- const capProp = calcCapitalProprioRodando();
- const capTerc = calcCapitalTerceiros();
+function sanitizeText(v) {
+ return String(v ?? '').replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+}
 
- const empAbertos = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago');
- const empStr = empAbertos.map(e => {
-  const tot = (e.valor||0)*(1+(e.juros||0));
-  return `- ${e.nome}: principal R$${e.valor}, juros ${(e.juros||0)*100}%, total R$${tot.toFixed(2)}, vence ${fmtDate(e.dataAcordada)}, origem ${e.origem}${e.donoTerceiro?' ('+e.donoTerceiro+')':''}`;
- }).join('\n');
-
- const despPend = DATA.despesas.filter(d => !d.dataPgto).map(d =>
-  `- ${d.desc||d.sub}: R$${d.valor} (${d.categoria})`
- ).join('\n');
-
- const recPend = DATA.receitas.filter(r => !r.dataReceb).map(r =>
-  `- ${r.descricao}: R$${r.valor||'?'} previsto ${fmtDate(r.dataPrev)}`
- ).join('\n');
-
- return `Você é um assistente financeiro pessoal do Vinicius Candido, 19 anos, estudante de Administração na UFES e estoquista no Grupo Ilha do Caranguejo em Vila Velha/ES.
-
-SITUAÇÃO ATUAL:
--Saldo em conta: R$${saldo.toFixed(2)}
-- Receitas recebidas (${m}/${a}): R$${rec.toFixed(2)}
--Despesas pagas (${m}/${a}): R$${desp.toFixed(2)}
-- Despesas pendentes: R$${pend.toFixed(2)}
-- Capital próprio emprestado: R$${capProp.toFixed(2)}
-- Capital de terceiros em circulação: R$${capTerc.toFixed(2)}
-
-EMPRÉSTIMOS EM ABERTO:
-${empStr || 'Nenhum'}
-
-DESPESAS PENDENTES:
-${despPend || 'Nenhuma'}
-
-RECEITAS PENDENTES:
-${recPend || 'Nenhuma'}
-
-PRINCÍPIOS FINANCEIROS DO VINICIUS:
-- Empresta dinheiro a juros de 30% ao mês (capital próprio)
-- Usa capital de terceiros (Pai, Santander Pix Crédito) para emprestar e fica com os juros
-- Quer crescer o capital próprio mensalmente
-- Tem meta de separar reserva mensal e investimento de longo prazo
-
-Responda de forma direta, objetiva e em português. Use valores reais dos dados acima. Formate valores como R$ X.XXX,XX. Quando fizer projeções, seja claro sobre os pressupostos. Seja conciso mas completo.`;
+function compactFinancialContext() {
+ ensureMetasFormat();
+ const m = CURRENT_PERIOD.month, y = CURRENT_PERIOD.year;
+ const metas = DATA.metas?.lista || [];
+ return {
+  periodoAtual: { mes: m, ano: y, mesNome: MESES_NOMES[m-1] },
+  usuario: { email: ACTIVE_USER?.email || '', nome: DATA.config?.userName || '' },
+  resumo: {
+   saldoAtual: calcSaldoAtual(),
+   patrimonio: calcPatrimonio(),
+   receitasMes: calcReceitasMes(m, y),
+   despesasPagasMes: calcDespesasPagas(m, y),
+   despesasPendentesMes: calcDespesasPendentes(m, y),
+   capitalProprioRodando: calcCapitalProprioRodando(),
+   capitalTerceiros: calcCapitalTerceiros(),
+   metasReservado: calcMetaAcumulada()
+  },
+  receitas: (DATA.receitas || []).map(r => ({ id:r.id, dataPrev:r.dataPrev, dataReceb:r.dataReceb, categoria:r.categoria, valor:r.valor, descricao:r.descricao })),
+  despesas: (DATA.despesas || []).map(d => ({ id:d.id, data:d.data, dataPgto:d.dataPgto, categoria:d.categoria, sub:d.sub, valor:d.valor, formaPgto:d.formaPgto, necessario:d.necessario, desc:d.desc })),
+  emprestimos: (DATA.emprestimos || []).map(e => ({ id:e.id, nome:e.nome, contato:e.contato, dataEmp:e.dataEmp, dataAcordada:e.dataAcordada, dataPgto:e.dataPgto, valor:e.valor, juros:e.juros, origem:e.origem, donoTerceiro:e.donoTerceiro, obs:e.obs, status:getStatus(e) })),
+  metas: metas.map(meta => ({ id:meta.id, nome:meta.nome, valorMeta:meta.valorMeta, status:meta.status, dataLimite:meta.dataLimite || '', obs:meta.obs, acumulado:(meta.aportes||[]).reduce((s,a)=>s+(Number(a.valor)||0),0), aportes:(meta.aportes||[]).map(a => ({ id:a.id, data:a.data || aporteDateISO(a), valor:a.valor, origem:a.origem, obs:a.obs })) })),
+  devolucoes: (DATA.devolucoes || []).map(d => ({ id:d.id, data:d.data, valor:d.valor, destino:d.destino, obs:d.obs })),
+  investimentos: (DATA.investimentos || []).map(i => ({ id:i.id, data:i.data, tipo:i.tipo, movimento:i.movimento, valor:i.valor, descricao:i.descricao })),
+  donosTerceiros: DATA.donosTerceiros || []
+ };
 }
 
 function renderIA() {
  const sugestoes = [
-  'Quanto vou receber esse mês?',
-  'Quanto sobra após pagar tudo?',
-  'Como está meu capital próprio?',
-  'Faça uma projeção para o próximo mês',
-  'Quais são meus empréstimos em aberto?',
+  'Faça um resumo financeiro do mês atual',
   'Onde estou gastando mais?',
+  'Tenho empréstimos atrasados?',
+  'Tenho devoluções pendentes?',
+  'Crie uma despesa de R$ 50 em alimentação hoje',
+  'Registre uma receita de juros recebidos hoje'
  ];
 
  return `
   <div class="chat-header">
    <div style="width:40px;height:40px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="6" r="4" fill="white" stroke="none" opacity=".3"/><path d="M17 4h2v2" stroke="white" stroke-width="1.5"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="M7.8 7.8l2.1 2.1"/><path d="M14.1 14.1l2.1 2.1"/><path d="M16.2 7.8l-2.1 2.1"/><path d="M9.9 14.1l-2.1 2.1"/></svg>
    </div>
    <div>
     <div style="font-family:var(--fh);font-size:15px;font-weight:800;color:var(--accent)">Assistente Financeiro</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:1px">Powered by Claude · Seus dados em tempo real</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:1px">OpenAI integrada via Supabase · alterações somente com confirmação</div>
    </div>
   </div>
 
   <div class="chat-suggestions" id="chatSugs">
-   ${sugestoes.map(s => `<button class="chat-sug" onclick="sendSuggestion('${s.replace(/'/g,"\\'")}')">
-    ${s}
-   </button>`).join('')}
+   ${sugestoes.map(s => `<button class="chat-sug" onclick="sendSuggestion('${s.replace(/'/g,"\'")}')">${s}</button>`).join('')}
   </div>
 
   <div class="chat-wrap">
    <div class="chat-messages" id="chatMessages">
     ${chatHistory.length === 0 ? `
      <div style="text-align:center;padding:24px 16px;color:var(--text-muted)">
-      <div style="font-size:32px;margin-bottom:8px;opacity:.3">—</div>
-      <div style="font-size:14px;font-weight:500">Olá, Vinicius! Pergunte qualquer coisa sobre suas finanças.</div>
-      <div style="font-size:12px;margin-top:4px">Tenho acesso a todos os seus dados em tempo real.</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text)">Assistente pronto para analisar seus dados.</div>
+      <div style="font-size:12px;margin-top:6px;line-height:1.55">Ele pode consultar suas informações e preparar lançamentos. Nenhuma alteração será feita sem sua confirmação.</div>
      </div>
     ` : chatHistory.map(m => renderChatMsg(m)).join('')}
+    ${renderPendingAiAction()}
    </div>
 
    <div class="chat-input-area">
-    <textarea id="chatInput" class="chat-input" placeholder="Pergunte sobre suas finanças..." rows="1"
+    <textarea id="chatInput" class="chat-input" placeholder="Pergunte ou solicite uma alteração..." rows="1"
      onkeydown="handleChatKey(event)" oninput="autoResize(this)"></textarea>
     <button class="chat-send" id="chatSendBtn" onclick="sendChat()" ${chatLoading?'disabled':''}>
      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -2276,14 +2316,48 @@ function renderIA() {
 
 function renderChatMsg(msg) {
  const isUser = msg.role === 'user';
- const initials = isUser ? 'VC' : 'IA';
- const content = msg.content.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+ const initials = isUser ? 'Você' : 'IA';
+ const safe = sanitizeText(msg.content)
+  .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+  .replace(/
+/g,'<br>');
  return `
   <div class="chat-msg ${isUser?'user':'ai'}">
-   <div class="chat-avatar ${isUser?'user-av':'ai-av'}">${initials}</div>
-   <div class="chat-bubble">${content}</div>
+   <div class="chat-avatar ${isUser?'user-av':'ai-av'}">${isUser?'VC':'IA'}</div>
+   <div class="chat-bubble">${safe}</div>
   </div>
  `;
+}
+
+function renderPendingAiAction() {
+ if (!pendingAiAction) return '';
+ const a = pendingAiAction;
+ const rows = [];
+ if (a.entity) rows.push(['Área', aiEntityLabel(a.entity)]);
+ if (a.operation) rows.push(['Ação', aiOperationLabel(a.operation)]);
+ if (a.payload?.descricao || a.payload?.desc || a.payload?.nome) rows.push(['Descrição', a.payload.descricao || a.payload.desc || a.payload.nome]);
+ if (a.payload?.valor !== undefined) rows.push(['Valor', fmt(Number(a.payload.valor) || 0)]);
+ if (a.payload?.data || a.payload?.dataReceb || a.payload?.dataPgto || a.payload?.dataPrev) rows.push(['Data', fmtDate(a.payload.data || a.payload.dataReceb || a.payload.dataPgto || a.payload.dataPrev)]);
+ if (a.targetId) rows.push(['ID do registro', a.targetId]);
+ return `
+  <div class="ai-action-card">
+   <div class="ai-action-title">Confirmação necessária</div>
+   <div class="ai-action-desc">${sanitizeText(a.summary || 'A IA preparou uma alteração. Confirme para aplicar no sistema.')}</div>
+   <div class="ai-action-grid">
+    ${rows.map(([k,v]) => `<div class="ai-action-row"><span>${k}</span><span>${sanitizeText(v)}</span></div>`).join('')}
+   </div>
+   <div class="ai-action-buttons">
+    <button class="btn btn-primary" onclick="confirmAiAction()">Confirmar e aplicar</button>
+    <button class="btn btn-secondary" onclick="cancelAiAction()">Cancelar</button>
+   </div>
+  </div>`;
+}
+
+function aiEntityLabel(e) {
+ return ({ receitas:'Receitas', despesas:'Despesas', emprestimos:'Empréstimos', metas:'Metas', aportes_metas:'Aportes de metas', devolucoes:'Devoluções', investimentos:'Investimentos' })[e] || e;
+}
+function aiOperationLabel(o) {
+ return ({ create:'Criar', update:'Editar', delete:'Excluir' })[o] || o;
 }
 
 function setupChat() {
@@ -2317,42 +2391,30 @@ async function sendChat() {
  const text = input ? input.value.trim() : '';
  if (!text) return;
 
- // Adiciona mensagem do usuário
  chatHistory.push({ role: 'user', content: text });
  if (input) { input.value = ''; input.style.height = 'auto'; }
-
- // Esconde sugestões após primeira mensagem
  const sugs = document.getElementById('chatSugs');
  if (sugs) sugs.style.display = 'none';
-
+ pendingAiAction = null;
  chatLoading = true;
  renderChatMessages(true);
 
  try {
-  const systemPrompt = buildFinancialContext();
-  const messages = chatHistory.map(m => ({ role: m.role, content: m.content }));
-
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-   method: 'POST',
-   headers: { 'Content-Type': 'application/json' },
-   body: JSON.stringify({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1000,
-    system: systemPrompt,
-    messages: messages
-   })
+  const { data, error } = await supabaseClient.functions.invoke('vault-ledger-ai', {
+   body: {
+    message: text,
+    history: chatHistory.slice(-10),
+    context: compactFinancialContext()
+   }
   });
 
-  const data = await resp.json();
-
-  if (data.content && data.content[0]) {
-   const reply = data.content[0].text;
-   chatHistory.push({ role: 'assistant', content: reply });
-  } else if (data.error) {
-   chatHistory.push({ role: 'assistant', content: `Erro: ${data.error.message || 'Falha na API'}` });
-  }
+  if (error) throw error;
+  if (!data || !data.reply) throw new Error('Resposta vazia da IA');
+  chatHistory.push({ role: 'assistant', content: data.reply });
+  if (data.pendingAction) pendingAiAction = data.pendingAction;
  } catch (err) {
-  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique sua conexão e tente novamente.' });
+  console.error(err);
+  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique se a Edge Function vault-ledger-ai foi publicada e se o secret OPENAI_API_KEY está correto.' });
  }
 
  chatLoading = false;
@@ -2362,19 +2424,148 @@ async function sendChat() {
 function renderChatMessages(loading) {
  const msgs = document.getElementById('chatMessages');
  if (!msgs) return;
-
- msgs.innerHTML = chatHistory.map(m => renderChatMsg(m)).join('') +
+ msgs.innerHTML = chatHistory.map(m => renderChatMsg(m)).join('') + renderPendingAiAction() +
   (loading ? `<div class="chat-msg ai"><div class="chat-avatar ai-av">IA</div><div class="chat-typing"><span></span><span></span><span></span></div></div>` : '');
-
  msgs.scrollTop = msgs.scrollHeight;
-
  const btn = document.getElementById('chatSendBtn');
  if (btn) btn.disabled = loading;
+}
+
+function confirmAiAction() {
+ if (!pendingAiAction) return;
+ try {
+  const result = applyAiAction(pendingAiAction);
+  pendingAiAction = null;
+  saveData();
+  render();
+  chatHistory.push({ role:'assistant', content: result || 'Alteração aplicada com sucesso.' });
+  setTimeout(() => { document.querySelector('.tab[data-page="ia"]')?.click?.(); }, 0);
+  showToast('Alteração aplicada');
+ } catch (e) {
+  console.error(e);
+  chatHistory.push({ role:'assistant', content: 'Não consegui aplicar a alteração: ' + (e.message || 'erro desconhecido') });
+  renderChatMessages(false);
+ }
+}
+
+function cancelAiAction() {
+ pendingAiAction = null;
+ chatHistory.push({ role:'assistant', content:'Ação cancelada. Nenhuma alteração foi feita.' });
+ renderChatMessages(false);
+}
+
+function applyAiAction(action) {
+ const entity = action.entity;
+ const op = action.operation;
+ const p = action.payload || {};
+ const id = Number(action.targetId || p.id);
+ if (!entity || !op) throw new Error('Ação incompleta.');
+ if (op === 'create') return aiCreate(entity, p);
+ if (op === 'update') return aiUpdate(entity, id, p);
+ if (op === 'delete') return aiDelete(entity, id);
+ throw new Error('Operação não permitida.');
+}
+
+function aiCreate(entity, p) {
+ ensureMetasFormat();
+ if (entity === 'receitas') {
+  DATA.receitas.push({ id: nextId(DATA.receitas), dataPrev:p.dataPrev || p.data || todayISO(), categoria:p.categoria || 'Outros', valor: Number(p.valor)||0, descricao:p.descricao || 'Receita lançada pela IA', dataReceb:p.dataReceb || p.data || todayISO() });
+  return 'Receita criada com sucesso.';
+ }
+ if (entity === 'despesas') {
+  DATA.despesas.push({ id: nextId(DATA.despesas), data:p.data || todayISO(), categoria:p.categoria || 'Outros', sub:p.sub || '', valor: Number(p.valor)||0, formaPgto:p.formaPgto || '', necessario:p.necessario || '', desc:p.desc || p.descricao || 'Despesa lançada pela IA', dataPgto:p.dataPgto || null });
+  return 'Despesa criada com sucesso.';
+ }
+ if (entity === 'emprestimos') {
+  DATA.emprestimos.push({ id: nextId(DATA.emprestimos), nome:p.nome || 'Cliente', contato:p.contato || '', dataEmp:p.dataEmp || p.data || todayISO(), dataAcordada:p.dataAcordada || null, dataPgto:p.dataPgto || null, valor:Number(p.valor)||0, juros:Number(p.juros)||0, origem:p.origem || 'Próprio', donoTerceiro:p.donoTerceiro || '', obs:p.obs || '' });
+  return 'Empréstimo criado com sucesso.';
+ }
+ if (entity === 'metas') {
+  DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome:p.nome || 'Nova meta', valorMeta:Number(p.valorMeta || p.valor)||0, status:p.status || 'Ativa', dataLimite:p.dataLimite || '', obs:p.obs || '', aportes:[] });
+  return 'Meta criada com sucesso.';
+ }
+ if (entity === 'aportes_metas') {
+  const meta = findMetaForAi(p);
+  if (!meta) throw new Error('Meta não encontrada para adicionar aporte.');
+  meta.aportes.push({ id: nextId(meta.aportes), data:p.data || todayISO(), valor:Number(p.valor)||0, origem:p.origem || '', obs:p.obs || 'Aporte lançado pela IA' });
+  return 'Aporte adicionado à meta.';
+ }
+ if (entity === 'devolucoes') {
+  DATA.devolucoes.push({ id: nextId(DATA.devolucoes), data:p.data || todayISO(), valor:Number(p.valor)||0, destino:p.destino || '', obs:p.obs || '' });
+  return 'Devolução criada com sucesso.';
+ }
+ if (entity === 'investimentos') {
+  DATA.investimentos.push({ id: nextId(DATA.investimentos), data:p.data || todayISO(), tipo:p.tipo || '', movimento:p.movimento || 'Aporte', valor:Number(p.valor)||0, descricao:p.descricao || '' });
+  return 'Investimento criado com sucesso.';
+ }
+ throw new Error('Área não suportada para criação.');
+}
+
+function aiUpdate(entity, id, p) {
+ if (!id) throw new Error('ID do registro não informado.');
+ const arrays = { receitas:DATA.receitas, despesas:DATA.despesas, emprestimos:DATA.emprestimos, devolucoes:DATA.devolucoes, investimentos:DATA.investimentos };
+ if (entity === 'metas') {
+  ensureMetasFormat();
+  const meta = DATA.metas.lista.find(x => Number(x.id) === id);
+  if (!meta) throw new Error('Meta não encontrada.');
+  Object.assign(meta, cleanAiPayload(p));
+  return 'Meta atualizada com sucesso.';
+ }
+ if (entity === 'aportes_metas') {
+  ensureMetasFormat();
+  for (const meta of DATA.metas.lista) {
+   const aporte = (meta.aportes || []).find(x => Number(x.id) === id);
+   if (aporte) { Object.assign(aporte, cleanAiPayload(p)); return 'Aporte atualizado com sucesso.'; }
+  }
+  throw new Error('Aporte não encontrado.');
+ }
+ const arr = arrays[entity];
+ if (!arr) throw new Error('Área não suportada para edição.');
+ const item = arr.find(x => Number(x.id) === id);
+ if (!item) throw new Error('Registro não encontrado.');
+ Object.assign(item, cleanAiPayload(p));
+ return 'Registro atualizado com sucesso.';
+}
+
+function aiDelete(entity, id) {
+ if (!id) throw new Error('ID do registro não informado.');
+ if (entity === 'metas') { DATA.metas.lista = DATA.metas.lista.filter(x => Number(x.id) !== id); return 'Meta excluída.'; }
+ if (entity === 'aportes_metas') {
+  for (const meta of DATA.metas.lista) meta.aportes = (meta.aportes || []).filter(a => Number(a.id) !== id);
+  return 'Aporte excluído.';
+ }
+ const map = { receitas:'receitas', despesas:'despesas', emprestimos:'emprestimos', devolucoes:'devolucoes', investimentos:'investimentos' };
+ const key = map[entity];
+ if (!key) throw new Error('Área não suportada para exclusão.');
+ DATA[key] = DATA[key].filter(x => Number(x.id) !== id);
+ return 'Registro excluído.';
+}
+
+function cleanAiPayload(p) {
+ const out = { ...p };
+ delete out.id; delete out.metaId; delete out.metaNome;
+ Object.keys(out).forEach(k => out[k] === undefined && delete out[k]);
+ return out;
+}
+
+function findMetaForAi(p) {
+ ensureMetasFormat();
+ if (p.metaId) {
+  const byId = DATA.metas.lista.find(m => Number(m.id) === Number(p.metaId));
+  if (byId) return byId;
+ }
+ if (p.metaNome) {
+  const q = String(p.metaNome).toLowerCase();
+  return DATA.metas.lista.find(m => String(m.nome).toLowerCase().includes(q));
+ }
+ if (DATA.metas.lista.length === 1) return DATA.metas.lista[0];
+ return null;
 }
 
 // ============================================================
 // PAGE: CONFIG
 // ============================================================
+
 function renderDueNotice(profile) {
  if (!profile || profile.is_admin || !profile.subscription_due_date) return '';
  const days = daysUntilDate(profile.subscription_due_date);
@@ -2438,6 +2629,13 @@ function renderConfig() {
      onchange="DATA.config.dataCorte = this.value; saveData(); render();">
     <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Data em que o saldo inicial foi medido.</div>
    </div>
+  </div>
+
+  <div class="section">
+   <div class="section-title" style="font-family:var(--fh)">Instalação do app</div>
+   <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px">Instale o Vault Ledger no celular para abrir como aplicativo, com tela inicial própria e melhor experiência mobile.</div>
+   <button data-install-app class="btn btn-primary" onclick="installApp()" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px">Instalar app</button>
+   <div style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:8px">Se o botão não abrir a instalação, use o menu do navegador e escolha Instalar app. Em alguns celulares, é necessário limpar o cache ou remover o atalho antigo.</div>
   </div>
 
   <div class="section">
@@ -3182,11 +3380,17 @@ function openMetaModal(id) {
    <label class="form-label">Valor alvo (R$)</label>
    <input class="form-input" type="number" step="0.01" id="meta_valor" value="${meta?.valorMeta || ''}" inputmode="decimal">
   </div>
-  <div class="form-group">
-   <label class="form-label">Status</label>
-   <select class="form-select" id="meta_status">
-    ${['Ativa','Concluída','Arquivada'].map(s => `<option value="${s}" ${meta?.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-   </select>
+  <div class="form-row">
+   <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="meta_status">
+     ${['Ativa','Concluída','Arquivada'].map(s => `<option value="${s}" ${meta?.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+    </select>
+   </div>
+   <div class="form-group">
+    <label class="form-label">Data limite</label>
+    <input class="form-input" type="date" id="meta_data_limite" value="${esc(meta?.dataLimite || '')}">
+   </div>
   </div>
   <div class="form-group">
    <label class="form-label">Observação</label>
@@ -3217,7 +3421,7 @@ function saveMeta(id) {
   meta.status = status;
   meta.obs = obs;
  } else {
-  DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome, valorMeta, status, obs, aportes: [] });
+  DATA.metas.lista.push({ id: nextId(DATA.metas.lista), nome, valorMeta, status, dataLimite, obs, aportes: [] });
  }
  saveData();
  closeModal();
@@ -3598,7 +3802,8 @@ function ensureMetasFormatFor(data) {
  if (!Array.isArray(data.metas.lista)) data.metas.lista = [];
  data.metas.lista.forEach((m, idx) => {
   if (!m.id) m.id = idx + 1;
-  if (!Array.isArray(m.aportes)) m.aportes = [];
+  if (m.dataLimite === undefined) m.dataLimite = '';
+   if (!Array.isArray(m.aportes)) m.aportes = [];
  });
 }
 
