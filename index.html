@@ -9,9 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vault Ledger">
 <meta name="application-name" content="Vault Ledger">
-<link rel="manifest" href="./manifest.webmanifest?v=2.9">
-<link rel="icon" type="image/png" href="./favicon.png?v=2.9">
-<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png?v=2.9">
+<link rel="manifest" href="./manifest.webmanifest?v=3.2-sem-ia">
+<link rel="icon" type="image/png" href="./favicon.png?v=3.2-sem-ia">
+<link rel="apple-touch-icon" href="./vault-ledger-icon-192.png?v=3.2-sem-ia">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
 <title>Vault Ledger • Gestão Financeira Inteligente</title>
@@ -511,7 +511,6 @@
   <div class="tab" data-page="patrimonio">Patrimônio</div>
   <div class="tab" data-page="devolucoes">Devoluções</div>
   <div class="tab" data-page="analise">Análise</div>
-  <div class="tab" data-page="ia">IA</div>
   <div class="tab" data-page="config">Config</div>
   <div class="tab" id="adminTab" data-page="admin" style="display:none">Administração</div>
  </nav>
@@ -906,6 +905,46 @@ function getStatus(e) {
 }
 
 
+function normalizeInterestRate(raw) {
+ const n = Number(raw);
+ if (!Number.isFinite(n) || n <= 0) return 0;
+ // Compatibilidade: no banco antigo 0.30 significa 30%; se vier 30 também significa 30%.
+ return n > 0 && n < 1 ? n : n / 100;
+}
+
+function getEmprestimoPrincipal(e) {
+ return Number(e?.valor || 0);
+}
+
+function getEmprestimoTotal(e) {
+ const principal = getEmprestimoPrincipal(e);
+ const retorno = Number(e?.valorRetorno || e?.valor_retorno || 0);
+ if (retorno > 0) return retorno;
+ return principal * (1 + normalizeInterestRate(e?.juros));
+}
+
+function getEmprestimoJurosValor(e) {
+ return Math.max(0, getEmprestimoTotal(e) - getEmprestimoPrincipal(e));
+}
+
+function getEmprestimoJurosPct(e) {
+ const principal = getEmprestimoPrincipal(e);
+ if (principal <= 0) return 0;
+ return getEmprestimoJurosValor(e) / principal;
+}
+
+function getEmprestimoRetornoLabel(e) {
+ if (Number(e?.valorRetorno || e?.valor_retorno || 0) > 0) return `Retorno combinado ${fmt(getEmprestimoTotal(e))}`;
+ return `${(getEmprestimoJurosPct(e) * 100).toFixed(0)}%`;
+}
+
+function addMonthsISO(dateIso, months) {
+ const base = parseDate(dateIso) || new Date();
+ const d = new Date(base.getFullYear(), base.getMonth() + months, base.getDate());
+ return d.toISOString().slice(0,10);
+}
+
+
 // ============================================================
 // RECEITAS AUTOMÁTICAS DE JUROS DOS EMPRÉSTIMOS
 // ============================================================
@@ -955,7 +994,7 @@ function reconcileJurosReceitas() {
 
  DATA.emprestimos.forEach(e => {
   if (!e || !e.id) return;
-  const jurosValor = Math.round(((Number(e.valor) || 0) * (Number(e.juros) || 0)) * 100) / 100;
+  const jurosValor = Math.round(getEmprestimoJurosValor(e) * 100) / 100;
   if (e.dataPgto && jurosValor > 0) {
    paidIds.add(String(e.id));
    const marker = autoJurosMarker(e.id);
@@ -1040,7 +1079,12 @@ function calcDespesasPendentes(mes, ano, categoria = null) {
 // RENDER
 // ============================================================
 function render() {
- const tab = document.querySelector('.tab.active').dataset.page;
+ let tab = document.querySelector('.tab.active')?.dataset.page || 'dashboard';
+ if (tab === 'ia') {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab[data-page="dashboard"]')?.classList.add('active');
+  tab = 'dashboard';
+ }
  const content = document.getElementById('content');
  
  // FAB visibility
@@ -1066,7 +1110,6 @@ function render() {
   case 'patrimonio': content.innerHTML = renderPatrimonio(); break;
   case 'devolucoes': content.innerHTML = renderDevolucoes(); break;
   case 'analise': content.innerHTML = renderAnalise(); break;
-  case 'ia': content.innerHTML = renderIA(); setupChat(); break;
   case 'config': content.innerHTML = renderConfig(); break;
   case 'admin': content.innerHTML = renderAdmin(); break;
  }
@@ -1156,8 +1199,8 @@ function renderDashboard() {
  const pctDesnecessario = (necessario + desnecessario) > 0 ? (desnecessario / (necessario + desnecessario)) : 0;
  
  const jurosRecebidos = calcReceitasMes(m, y, 'Juros');
- const aReceber = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + (e.valor || 0), 0);
- const jurosAReceber = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + (e.valor || 0) * (e.juros || 0), 0);
+ const aReceber = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + getEmprestimoTotal(e), 0);
+ const jurosAReceber = DATA.emprestimos.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + getEmprestimoJurosValor(e), 0);
  const atrasados = DATA.emprestimos.filter(e => getStatus(e) === 'Atrasado').length;
  
  return `
@@ -1540,7 +1583,7 @@ function renderEmprestimos() {
   <div class="section" style="padding:0;overflow:hidden">
    ${lista.map(e => {
     const status = getStatus(e);
-    const total = (e.valor||0) * (1 + (e.juros||0));
+    const total = getEmprestimoTotal(e);
     const tag = { 'Pago':'success','Atrasado':'danger','Em aberto':'warning' }[status];
     return `
     <div class="list-item" style="border-radius:0;border-left:none;border-right:none;border-top:none;margin-bottom:0" onclick="editEmprestimo(${e.id})">
@@ -1556,7 +1599,7 @@ function renderEmprestimos() {
       </div>
       <div style="text-align:right">
        <div class="list-item-value">${fmt(total)}</div>
-       <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fmt(e.valor)} + ${((e.juros||0)*100).toFixed(0)}%</div>
+       <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fmt(e.valor)} + ${getEmprestimoRetornoLabel(e)}</div>
       </div>
      </div>
     </div>
@@ -1576,8 +1619,8 @@ function renderCapitais() {
  const stats = (arr) => ({
   aberto: arr.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + (e.valor || 0), 0),
   pago: arr.filter(e => getStatus(e) === 'Pago').reduce((s,e) => s + (e.valor || 0), 0),
-  jurosAReceber: arr.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + (e.valor || 0) * (e.juros || 0), 0),
-  jurosRecebidos: arr.filter(e => getStatus(e) === 'Pago').reduce((s,e) => s + (e.valor || 0) * (e.juros || 0), 0),
+  jurosAReceber: arr.filter(e => getStatus(e) !== 'Pago').reduce((s,e) => s + getEmprestimoJurosValor(e), 0),
+  jurosRecebidos: arr.filter(e => getStatus(e) === 'Pago').reduce((s,e) => s + getEmprestimoJurosValor(e), 0),
  });
  
  const sp = stats(proprio);
@@ -2042,7 +2085,7 @@ function renderDevolucoes() {
   const status = getStatus(e);
   if (status === 'Pago') {
    saldosPorDono[dono].capitalRecebido += e.valor || 0;
-   saldosPorDono[dono].jurosRecebidos += (e.valor || 0) * (e.juros || 0);
+   saldosPorDono[dono].jurosRecebidos += getEmprestimoJurosValor(e);
   } else {
    saldosPorDono[dono].capitalEmAberto += e.valor || 0;
   }
@@ -2230,557 +2273,9 @@ function deleteDevolucao(id) {
 
 
 // ============================================================
-// PAGE: IA — Assistente financeiro com OpenAI via Supabase
-// ============================================================
-let chatHistory = [];
-let chatLoading = false;
-let pendingAiAction = null;
-let LAST_AI_APPLIED_ACTION = null;
-
-function sanitizeText(v) {
- return String(v ?? '').replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
-}
-
-function compactFinancialContext() {
- ensureMetasFormat();
- const m = CURRENT_PERIOD.month, y = CURRENT_PERIOD.year;
- const metas = DATA.metas?.lista || [];
- return {
-  periodoAtual: { mes: m, ano: y, mesNome: MESES_NOMES[m-1] },
-  usuario: { email: ACTIVE_USER?.email || '', nome: DATA.config?.userName || '' },
-  resumo: {
-   saldoAtual: calcSaldoAtual(),
-   patrimonio: calcPatrimonio(),
-   receitasMes: calcReceitasMes(m, y),
-   despesasPagasMes: calcDespesasPagas(m, y),
-   despesasPendentesMes: calcDespesasPendentes(m, y),
-   capitalProprioRodando: calcCapitalProprioRodando(),
-   capitalTerceiros: calcCapitalTerceiros(),
-   metasReservado: calcMetaAcumulada()
-  },
-  receitas: (DATA.receitas || []).map(r => ({ id:r.id, dataPrev:r.dataPrev, dataReceb:r.dataReceb, categoria:r.categoria, valor:r.valor, descricao:r.descricao })),
-  despesas: (DATA.despesas || []).map(d => ({ id:d.id, data:d.data, dataPgto:d.dataPgto, categoria:d.categoria, sub:d.sub, valor:d.valor, formaPgto:d.formaPgto, necessario:d.necessario, desc:d.desc })),
-  emprestimos: (DATA.emprestimos || []).map(e => ({ id:e.id, nome:e.nome, contato:e.contato, dataEmp:e.dataEmp, dataAcordada:e.dataAcordada, dataPgto:e.dataPgto, valor:e.valor, juros:e.juros, origem:e.origem, donoTerceiro:e.donoTerceiro, obs:e.obs, status:getStatus(e) })),
-  metas: metas.map(meta => ({ id:meta.id, nome:meta.nome, valorMeta:meta.valorMeta, status:meta.status, dataLimite:meta.dataLimite || '', obs:meta.obs, acumulado:(meta.aportes||[]).reduce((s,a)=>s+(Number(a.valor)||0),0), aportes:(meta.aportes||[]).map(a => ({ id:a.id, data:a.data || aporteDateISO(a), valor:a.valor, origem:a.origem, obs:a.obs })) })),
-  devolucoes: (DATA.devolucoes || []).map(d => ({ id:d.id, data:d.data, valor:d.valor, destino:d.destino, obs:d.obs })),
-  investimentos: (DATA.investimentos || []).map(i => ({ id:i.id, data:i.data, tipo:i.tipo, movimento:i.movimento, valor:i.valor, descricao:i.descricao })),
-  donosTerceiros: DATA.donosTerceiros || []
- };
-}
-
-function renderIA() {
- const sugestoes = [
-  'Faça um resumo financeiro do mês atual',
-  'Onde estou gastando mais?',
-  'Tenho empréstimos atrasados?',
-  'Tenho devoluções pendentes?',
-  'Crie uma despesa de R$ 50 em alimentação hoje',
-  'Registre uma receita de juros recebidos hoje'
- ];
-
- return `
-  <div class="chat-header">
-   <div style="width:40px;height:40px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="M7.8 7.8l2.1 2.1"/><path d="M14.1 14.1l2.1 2.1"/><path d="M16.2 7.8l-2.1 2.1"/><path d="M9.9 14.1l-2.1 2.1"/></svg>
-   </div>
-   <div>
-    <div style="font-family:var(--fh);font-size:15px;font-weight:800;color:var(--accent)">Assistente Financeiro</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:1px">OpenAI integrada via Supabase · alterações somente com confirmação</div>
-   </div>
-  </div>
-
-  <div class="chat-suggestions" id="chatSugs">
-   ${sugestoes.map(s => `<button class="chat-sug" onclick="sendSuggestion('${s.replace(/'/g,"\'")}')">${s}</button>`).join('')}
-  </div>
-
-  <div class="chat-wrap">
-   <div class="chat-messages" id="chatMessages">
-    ${chatHistory.length === 0 ? `
-     <div style="text-align:center;padding:24px 16px;color:var(--text-muted)">
-      <div style="font-size:14px;font-weight:700;color:var(--text)">Assistente pronto para analisar seus dados.</div>
-      <div style="font-size:12px;margin-top:6px;line-height:1.55">Ele pode consultar suas informações e preparar lançamentos. Nenhuma alteração será feita sem sua confirmação.</div>
-     </div>
-    ` : chatHistory.map(m => renderChatMsg(m)).join('')}
-    ${renderPendingAiAction()}
-   </div>
-
-   <div class="chat-input-area">
-    <textarea id="chatInput" class="chat-input" placeholder="Pergunte ou solicite uma alteração..." rows="1"
-     onkeydown="handleChatKey(event)" oninput="autoResize(this)"></textarea>
-    <button class="chat-send" id="chatSendBtn" onclick="sendChat()" ${chatLoading?'disabled':''}>
-     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
-   </div>
-  </div>
- `;
-}
-
-function renderChatMsg(msg) {
- const isUser = msg.role === 'user';
- const initials = isUser ? 'Você' : 'IA';
- const safe = sanitizeText(msg.content)
-   .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-   .replace(/\n/g,'<br>');
- return `
-  <div class="chat-msg ${isUser?'user':'ai'}">
-   <div class="chat-avatar ${isUser?'user-av':'ai-av'}">${isUser?'VC':'IA'}</div>
-   <div class="chat-bubble">${safe}</div>
-  </div>
- `;
-}
-
-function renderPendingAiAction() {
- if (!pendingAiAction) return '';
- const a = normalizeAiAction(pendingAiAction) || pendingAiAction;
- const rows = [];
- if (a.entity) rows.push(['Área', aiEntityLabel(a.entity)]);
- if (a.operation) rows.push(['Ação', aiOperationLabel(a.operation)]);
- if (a.targetName) rows.push(['Registro localizado', a.targetName]);
- if (a.targetId) rows.push(['ID do registro', a.targetId]);
- const beforeRows = aiObjectRows(a.before || null);
- const afterRows = aiObjectRows(a.after || a.payload || null);
- const payloadRows = [];
- if (!beforeRows.length && !afterRows.length) {
-  if (a.payload?.categoria) payloadRows.push(['Categoria', a.payload.categoria]);
-  if (a.payload?.descricao || a.payload?.desc || a.payload?.nome) payloadRows.push(['Descrição', a.payload.descricao || a.payload.desc || a.payload.nome]);
-  if (a.payload?.valor !== undefined || a.payload?.valorMeta !== undefined) payloadRows.push(['Valor', fmt(Number(a.payload.valor ?? a.payload.valorMeta) || 0)]);
-  if (a.payload?.dataLimite) payloadRows.push(['Data limite', fmtDate(a.payload.dataLimite)]);
-  if (a.payload?.data || a.payload?.dataReceb || a.payload?.dataPgto || a.payload?.dataPrev || a.payload?.dataEmp || a.payload?.dataAcordada) payloadRows.push(['Data', fmtDate(a.payload.data || a.payload.dataReceb || a.payload.dataPgto || a.payload.dataPrev || a.payload.dataEmp || a.payload.dataAcordada)]);
-  if (a.payload?.dataPgto) payloadRows.push(['Status', 'Pago em ' + fmtDate(a.payload.dataPgto)]);
- }
- return `
-  <div class="ai-action-card">
-   <div class="ai-action-title"><span>Confirmação necessária</span><span class="ai-action-pill">${sanitizeText(aiEntityLabel(a.entity || ''))}</span></div>
-   <div class="ai-action-desc">${sanitizeText(a.summary || 'A IA preparou uma alteração. Revise os dados abaixo e confirme para aplicar no sistema.')}</div>
-   <div class="ai-action-grid">
-    ${rows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}
-   </div>
-   ${beforeRows.length ? `<div style="font-size:11px;color:var(--text-muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">Antes</div><div class="ai-action-grid">${beforeRows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}</div>` : ''}
-   ${afterRows.length ? `<div style="font-size:11px;color:var(--success);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">Depois</div><div class="ai-action-grid">${afterRows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}</div>` : ''}
-   ${payloadRows.length ? `<div class="ai-action-grid">${payloadRows.map(([k,v]) => `<div class="ai-action-row"><span>${sanitizeText(k)}</span><span>${sanitizeText(v)}</span></div>`).join('')}</div>` : ''}
-   <div class="ai-action-buttons">
-    <button class="btn btn-primary" onclick="confirmAiAction()">Confirmar e aplicar</button>
-    <button class="btn btn-secondary" onclick="cancelAiAction()">Cancelar</button>
-   </div>
-  </div>`;
-}
-
-function aiObjectRows(obj) {
- if (!obj || typeof obj !== 'object') return [];
- const rows = [];
- const map = [
-  ['nome','Nome'], ['cliente','Cliente'], ['desc','Descrição'], ['descricao','Descrição'], ['categoria','Categoria'], ['sub','Subcategoria'],
-  ['valor','Valor'], ['valorMeta','Valor alvo'], ['juros','Juros'], ['origem','Origem'], ['donoTerceiro','Dono terceiro'],
-  ['data','Data'], ['dataPgto','Data de pagamento'], ['dataReceb','Data de recebimento'], ['dataPrev','Data prevista'], ['dataEmp','Data do empréstimo'], ['dataAcordada','Vencimento'], ['dataLimite','Data limite'],
-  ['status','Status'], ['formaPgto','Forma de pagamento'], ['necessario','Necessário'], ['destino','Destino'], ['obs','Observação']
- ];
- for (const [key,label] of map) {
-  if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
-   let v = obj[key];
-   if (['valor','valorMeta'].includes(key)) v = fmt(Number(v)||0);
-   if (key.toLowerCase().includes('data')) v = fmtDate(v);
-   rows.push([label, v]);
-  }
- }
- return rows;
-}
-
-function aiEntityLabel(e) {
- return ({ receitas:'Receitas', despesas:'Despesas', emprestimos:'Empréstimos', metas:'Metas', aportes_metas:'Aportes de metas', devolucoes:'Devoluções', investimentos:'Investimentos' })[e] || e;
-}
-function aiOperationLabel(o) {
- return ({ create:'Criar', update:'Editar', delete:'Excluir' })[o] || o;
-}
-
-function setupChat() {
- const msgs = document.getElementById('chatMessages');
- if (msgs) msgs.scrollTop = msgs.scrollHeight;
- const input = document.getElementById('chatInput');
- if (input) input.focus();
-}
-
-function autoResize(el) {
- el.style.height = 'auto';
- el.style.height = Math.min(el.scrollHeight, 100) + 'px';
-}
-
-function handleChatKey(e) {
- if (e.key === 'Enter' && !e.shiftKey) {
-  e.preventDefault();
-  sendChat();
- }
-}
-
-function sendSuggestion(text) {
- const input = document.getElementById('chatInput');
- if (input) { input.value = text; autoResize(input); }
- sendChat();
-}
-
-async function sendChat() {
- if (chatLoading) return;
- const input = document.getElementById('chatInput');
- const text = input ? input.value.trim() : '';
- if (!text) return;
-
- const localAction = tryBuildLocalFollowupAction(text);
- if (localAction) {
-  chatHistory.push({ role: 'user', content: text });
-  if (input) { input.value = ''; input.style.height = 'auto'; }
-  pendingAiAction = localAction;
-  chatHistory.push({ role: 'assistant', content: 'Preparei a atualização com base na última alteração. Revise e confirme para aplicar.' });
-  renderChatMessages(false);
-  return;
- }
-
- chatHistory.push({ role: 'user', content: text });
- if (input) { input.value = ''; input.style.height = 'auto'; }
- const sugs = document.getElementById('chatSugs');
- if (sugs) sugs.style.display = 'none';
- pendingAiAction = null;
- chatLoading = true;
- renderChatMessages(true);
-
- try {
-  const payload = { message: text, history: chatHistory.slice(-10), context: compactFinancialContext() };
-  let result = await supabaseClient.functions.invoke('vault-ledger-ai', { body: payload });
-  if (result.error) {
-   // Compatibilidade com a função criada originalmente como vault-ledger-ia.
-   const fallback = await supabaseClient.functions.invoke('vault-ledger-ia', { body: payload });
-   if (fallback.error) throw result.error;
-   result = fallback;
-  }
-  const data = result.data;
-  if (!data) throw new Error('Resposta vazia da IA');
-
-  const parsed = parseAiResponse(data);
-  chatHistory.push({ role: 'assistant', content: parsed.reply || 'Pronto. Revise a ação preparada abaixo.' });
-  if (parsed.pendingAction) pendingAiAction = normalizeAiAction(parsed.pendingAction);
- } catch (err) {
-  console.error(err);
-  chatHistory.push({ role: 'assistant', content: 'Não foi possível conectar à IA. Verifique se a Edge Function foi publicada e se o secret OPENAI_API_KEY está correto.' });
- }
-
- chatLoading = false;
- renderChatMessages(false);
-}
-
-function parseAiResponse(data) {
- let reply = data.reply || data.message || '';
- let pendingAction = data.pendingAction || data.actionToConfirm || null;
-
- // Segurança: se a função antiga devolver JSON cru dentro de reply, converte para card de confirmação.
- const raw = typeof reply === 'string' ? reply.trim() : '';
- const obj = extractJsonObject(raw);
- if (obj) {
-  if (obj.reply) reply = obj.reply;
-  else if (obj.summary) reply = 'Revise a ação preparada abaixo antes de confirmar.';
-  else if (obj.requiresConfirmation || obj.pendingAction || obj.action) reply = 'Revise a ação preparada abaixo antes de confirmar.';
-  pendingAction = pendingAction || obj.pendingAction || obj.action || obj;
- }
-
- if (pendingAction?.requiresConfirmation === false) pendingAction = null;
- if (pendingAction && pendingAction.requiresConfirmation !== undefined) {
-  pendingAction = { ...pendingAction, ...(pendingAction.action && typeof pendingAction.action === 'object' ? pendingAction.action : {}) };
- }
- return { reply: String(reply || '').trim(), pendingAction };
-}
-
-function extractJsonObject(text) {
- if (!text || typeof text !== 'string') return null;
- const cleaned = text.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
- const start = cleaned.indexOf('{');
- const end = cleaned.lastIndexOf('}');
- if (start < 0 || end <= start) return null;
- try { return JSON.parse(cleaned.slice(start, end + 1)); } catch(e) { return null; }
-}
-
-function normalizeAiAction(action) {
- if (!action || typeof action !== 'object') return null;
- const raw = action.action && typeof action.action === 'object' ? { ...action, ...action.action } : { ...action };
- let entity = String(raw.entity || raw.table || raw.area || raw.tipo || '').toLowerCase().trim();
- entity = entity.replace(/-/g,'_');
- const entityMap = {
-  receita:'receitas', receitas:'receitas', income:'receitas', incomes:'receitas',
-  despesa:'despesas', despesas:'despesas', expense:'despesas', expenses:'despesas',
-  emprestimo:'emprestimos', empréstimo:'emprestimos', emprestimos:'emprestimos', empréstimos:'emprestimos', loans:'emprestimos', loan:'emprestimos',
-  meta:'metas', metas:'metas', goal:'metas', goals:'metas',
-  aporte:'aportes_metas', aportes:'aportes_metas', aporte_meta:'aportes_metas', aportes_metas:'aportes_metas', deposit:'aportes_metas', deposits:'aportes_metas',
-  devolucao:'devolucoes', devolução:'devolucoes', devolucoes:'devolucoes', devoluções:'devolucoes',
-  investimento:'investimentos', investimentos:'investimentos', investment:'investimentos', investments:'investimentos'
- };
- entity = entityMap[entity] || entity;
- let operation = String(raw.operation || raw.operacao || raw.actionType || raw.type || '').toLowerCase().trim();
- const opMap = { inserir:'create', adicionar:'create', criar:'create', add:'create', insert:'create', create:'create', novo:'create', nova:'create',
-  editar:'update', atualizar:'update', alterar:'update', update:'update', edit:'update',
-  excluir:'delete', apagar:'delete', deletar:'delete', remove:'delete', delete:'delete' };
- operation = opMap[operation] || operation;
- const payload = raw.payload || raw.data || raw.fields || {};
- return {
-  entity,
-  operation,
-  targetId: raw.targetId || raw.id || payload.id || null,
-  targetName: raw.targetName || raw.nome || raw.cliente || payload.nome || payload.cliente || raw.search || raw.query || '',
-  payload: normalizeAiPayloadFields(payload),
-  summary: raw.summary || raw.resumo || raw.confirmationText || raw.descricao || ''
- };
-}
-
-function normalizeAiPayloadFields(payload) {
- const p = { ...(payload || {}) };
- if (p.description && !p.descricao) p.descricao = p.description;
- if (p.nome_meta && !p.nome) p.nome = p.nome_meta;
- if (p.valor_meta !== undefined && p.valorMeta === undefined) p.valorMeta = p.valor_meta;
- if (p.data_limite && !p.dataLimite) p.dataLimite = p.data_limite;
- if (p.data_receb && !p.dataReceb) p.dataReceb = p.data_receb;
- if (p.data_pgto && !p.dataPgto) p.dataPgto = p.data_pgto;
- if (p.data_prev && !p.dataPrev) p.dataPrev = p.data_prev;
- if (p.data_emp && !p.dataEmp) p.dataEmp = p.data_emp;
- if (p.data_acordada && !p.dataAcordada) p.dataAcordada = p.data_acordada;
- if (p.forma_pgto && !p.formaPgto) p.formaPgto = p.forma_pgto;
- if (p.dono_terceiro && !p.donoTerceiro) p.donoTerceiro = p.dono_terceiro;
- if (p.meta_id && !p.metaId) p.metaId = p.meta_id;
- return p;
-}
-
-function renderChatMessages(loading) {
- const msgs = document.getElementById('chatMessages');
- if (!msgs) return;
- msgs.innerHTML = chatHistory.map(m => renderChatMsg(m)).join('') + renderPendingAiAction() +
-  (loading ? `<div class="chat-msg ai"><div class="chat-avatar ai-av">IA</div><div class="chat-typing"><span></span><span></span><span></span></div></div>` : '');
- msgs.scrollTop = msgs.scrollHeight;
- const btn = document.getElementById('chatSendBtn');
- if (btn) btn.disabled = loading;
-}
-
-function confirmAiAction() {
- if (!pendingAiAction) return;
- try {
-  const result = applyAiAction(normalizeAiAction(pendingAiAction));
-  pendingAiAction = null;
-  saveData();
-  render();
-  chatHistory.push({ role:'assistant', content: result || 'Alteração aplicada com sucesso.' });
-  setTimeout(() => { document.querySelector('.tab[data-page="ia"]')?.click?.(); }, 0);
-  showToast('Alteração aplicada');
- } catch (e) {
-  console.error(e);
-  chatHistory.push({ role:'assistant', content: 'Não consegui aplicar a alteração: ' + (e.message || 'erro desconhecido') });
-  renderChatMessages(false);
- }
-}
-
-function cancelAiAction() {
- pendingAiAction = null;
- chatHistory.push({ role:'assistant', content:'Ação cancelada. Nenhuma alteração foi feita.' });
- renderChatMessages(false);
-}
-
-
-function removeAccentsLower(v) {
- return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-}
-
-function todayOrDateFromPayload(p) {
- return p.dataPgto || p.data || p.dataReceb || p.dataPrev || todayISO();
-}
-
-function tryBuildLocalFollowupAction(text) {
- const t = removeAccentsLower(text);
- if (!LAST_AI_APPLIED_ACTION) return null;
- const isPaidFollowup = /\b(ja foi paga|ja foi pago|foi paga|foi pago|paga|pago|quitar|quitada|quitado)\b/.test(t);
- if (isPaidFollowup && LAST_AI_APPLIED_ACTION.entity === 'despesas' && LAST_AI_APPLIED_ACTION.targetId) {
-  const p = LAST_AI_APPLIED_ACTION.payload || {};
-  return {
-   entity:'despesas',
-   operation:'update',
-   targetId:LAST_AI_APPLIED_ACTION.targetId,
-   targetName:p.desc || p.descricao || 'última despesa criada',
-   payload:{ dataPgto: p.data || todayISO() },
-   summary:'Marcar a última despesa criada pela IA como paga.'
-  };
- }
- return null;
-}
-
-function findBestAiRecord(entity, action) {
- const p = action.payload || {};
- const terms = [action.targetName, p.nome, p.cliente, p.descricao, p.desc, p.sub, p.obs, action.summary]
-  .filter(Boolean).map(removeAccentsLower).filter(Boolean);
- const arrays = { receitas:DATA.receitas, despesas:DATA.despesas, emprestimos:DATA.emprestimos, devolucoes:DATA.devolucoes, investimentos:DATA.investimentos };
- let arr = arrays[entity] || [];
- if (entity === 'metas') arr = (DATA.metas && DATA.metas.lista) || [];
- if (!arr.length || !terms.length) return null;
- const candidates = arr.map(item => {
-  const hay = removeAccentsLower([item.nome,item.cliente,item.descricao,item.desc,item.sub,item.obs,item.categoria,item.destino,item.tipo].filter(Boolean).join(' '));
-  let score = 0;
-  for (const term of terms) {
-   const words = term.split(/\s+/).filter(w => w.length >= 3);
-   if (hay.includes(term)) score += 20;
-   for (const w of words) if (hay.includes(w)) score += 4;
-  }
-  // Prefer open loans when updating loans unless payload explicitly has dataPgto.
-  if (entity === 'emprestimos' && !item.dataPgto) score += 3;
-  // Prefer recent unpaid expenses for payment follow-up.
-  if (entity === 'despesas' && !item.dataPgto) score += 2;
-  return { item, score };
- }).filter(x => x.score > 0).sort((a,b) => b.score - a.score);
- if (!candidates.length) return null;
- const top = candidates[0];
- const tied = candidates.filter(c => c.score === top.score);
- if (tied.length > 1 && top.score < 24) {
-  throw new Error('Encontrei mais de um registro possível. Informe mais detalhes, como nome completo, valor ou data.');
- }
- return top.item;
-}
-
-function ensureAiActionTarget(action) {
- if (action.targetId) return action;
- if (!['update','delete'].includes(action.operation)) return action;
- const found = findBestAiRecord(action.entity, action);
- if (!found) throw new Error('Não localizei o registro para alterar. Informe nome, valor ou data do registro.');
- action.targetId = found.id;
- action.targetName = found.nome || found.descricao || found.desc || found.sub || String(found.id);
- return action;
-}
-
-function applyAiAction(action) {
- action = normalizeAiAction(action);
- if (!action) throw new Error('Ação inválida.');
- action = ensureAiActionTarget(action);
- const entity = action.entity;
- const op = action.operation;
- const p = action.payload || {};
- const id = Number(action.targetId || p.id);
- if (!entity || !op) throw new Error('Ação incompleta.');
- if (op === 'create') return aiCreate(entity, p);
- if (op === 'update') return aiUpdate(entity, id, p);
- if (op === 'delete') return aiDelete(entity, id);
- throw new Error('Operação não permitida.');
-}
-
-function aiCreate(entity, p) {
- ensureMetasFormat();
- if (entity === 'receitas') {
-  const id = nextId(DATA.receitas);
-  const rec = { id, dataPrev:p.dataPrev || p.data || todayISO(), categoria:p.categoria || 'Outros', valor: Number(p.valor)||0, descricao:p.descricao || p.desc || 'Receita lançada pela IA', dataReceb:p.dataReceb || p.data || todayISO() };
-  DATA.receitas.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return 'Receita criada com sucesso.';
- }
- if (entity === 'despesas') {
-  const id = nextId(DATA.despesas);
-  const paidWords = removeAccentsLower([p.status,p.situacao,p.obs,p.desc,p.descricao].join(' '));
-  const shouldMarkPaid = !!p.dataPgto || /\b(pago|paga|paguei|quitado|quitada)\b/.test(paidWords);
-  const rec = { id, data:p.data || todayISO(), categoria:p.categoria || 'Outros', sub:p.sub || '', valor: Number(p.valor)||0, formaPgto:p.formaPgto || '', necessario:p.necessario || '', desc:p.desc || p.descricao || 'Despesa lançada pela IA', dataPgto: shouldMarkPaid ? (p.dataPgto || p.data || todayISO()) : null };
-  DATA.despesas.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return rec.dataPgto ? 'Despesa criada e marcada como paga.' : 'Despesa criada com sucesso.';
- }
- if (entity === 'emprestimos') {
-  const id = nextId(DATA.emprestimos);
-  const rec = { id, nome:p.nome || 'Cliente', contato:p.contato || '', dataEmp:p.dataEmp || p.data || todayISO(), dataAcordada:p.dataAcordada || null, dataPgto:p.dataPgto || null, valor:Number(p.valor)||0, juros:Number(p.juros)||0, origem:p.origem || 'Próprio', donoTerceiro:p.donoTerceiro || '', obs:p.obs || '' };
-  DATA.emprestimos.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return 'Empréstimo criado com sucesso.';
- }
- if (entity === 'metas') {
-  const id = nextId(DATA.metas.lista);
-  const rec = { id, nome:p.nome || 'Nova meta', valorMeta:Number(p.valorMeta || p.valor)||0, status:p.status || 'Ativa', dataLimite:p.dataLimite || p.data || '', obs:p.obs || '', aportes:[] };
-  DATA.metas.lista.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return 'Meta criada com sucesso.';
- }
- if (entity === 'aportes_metas') {
-  const meta = findMetaForAi(p);
-  if (!meta) throw new Error('Meta não encontrada para adicionar aporte.');
-  const id = nextId(meta.aportes);
-  const rec = { id, data:p.data || todayISO(), valor:Number(p.valor)||0, origem:p.origem || '', obs:p.obs || 'Aporte lançado pela IA' };
-  meta.aportes.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return 'Aporte adicionado à meta.';
- }
- if (entity === 'devolucoes') {
-  const id = nextId(DATA.devolucoes);
-  const rec = { id, data:p.data || todayISO(), valor:Number(p.valor)||0, destino:p.destino || '', obs:p.obs || '' };
-  DATA.devolucoes.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return 'Devolução criada com sucesso.';
- }
- if (entity === 'investimentos') {
-  const id = nextId(DATA.investimentos);
-  const rec = { id, data:p.data || todayISO(), tipo:p.tipo || '', movimento:p.movimento || 'Aporte', valor:Number(p.valor)||0, descricao:p.descricao || '' };
-  DATA.investimentos.push(rec);
-  LAST_AI_APPLIED_ACTION = { entity, operation:'create', targetId:id, payload:rec };
-  return 'Investimento criado com sucesso.';
- }
- throw new Error('Área não suportada para criação.');
-}
-
-function aiUpdate(entity, id, p) {
- if (!id) throw new Error('ID do registro não informado.');
- const arrays = { receitas:DATA.receitas, despesas:DATA.despesas, emprestimos:DATA.emprestimos, devolucoes:DATA.devolucoes, investimentos:DATA.investimentos };
- if (entity === 'metas') {
-  ensureMetasFormat();
-  const meta = DATA.metas.lista.find(x => Number(x.id) === id);
-  if (!meta) throw new Error('Meta não encontrada.');
-  Object.assign(meta, cleanAiPayload(p));
-  LAST_AI_APPLIED_ACTION = { entity, operation:'update', targetId:id, payload:meta };
-  return 'Meta atualizada com sucesso.';
- }
- if (entity === 'aportes_metas') {
-  ensureMetasFormat();
-  for (const meta of DATA.metas.lista) {
-   const aporte = (meta.aportes || []).find(x => Number(x.id) === id);
-   if (aporte) { Object.assign(aporte, cleanAiPayload(p)); LAST_AI_APPLIED_ACTION = { entity, operation:'update', targetId:id, payload:aporte }; return 'Aporte atualizado com sucesso.'; }
-  }
-  throw new Error('Aporte não encontrado.');
- }
- const arr = arrays[entity];
- if (!arr) throw new Error('Área não suportada para edição.');
- const item = arr.find(x => Number(x.id) === id);
- if (!item) throw new Error('Registro não encontrado.');
- Object.assign(item, cleanAiPayload(p));
- LAST_AI_APPLIED_ACTION = { entity, operation:'update', targetId:id, payload:item };
- return 'Registro atualizado com sucesso.';
-}
-
-function aiDelete(entity, id) {
- if (!id) throw new Error('ID do registro não informado.');
- if (entity === 'metas') { DATA.metas.lista = DATA.metas.lista.filter(x => Number(x.id) !== id); return 'Meta excluída.'; }
- if (entity === 'aportes_metas') {
-  for (const meta of DATA.metas.lista) meta.aportes = (meta.aportes || []).filter(a => Number(a.id) !== id);
-  return 'Aporte excluído.';
- }
- const map = { receitas:'receitas', despesas:'despesas', emprestimos:'emprestimos', devolucoes:'devolucoes', investimentos:'investimentos' };
- const key = map[entity];
- if (!key) throw new Error('Área não suportada para exclusão.');
- DATA[key] = DATA[key].filter(x => Number(x.id) !== id);
- return 'Registro excluído.';
-}
-
-function cleanAiPayload(p) {
- const out = normalizeAiPayloadFields({ ...p });
- delete out.id; delete out.metaId; delete out.metaNome;
- Object.keys(out).forEach(k => out[k] === undefined && delete out[k]);
- return out;
-}
-
-function findMetaForAi(p) {
- ensureMetasFormat();
- if (p.metaId) {
-  const byId = DATA.metas.lista.find(m => Number(m.id) === Number(p.metaId));
-  if (byId) return byId;
- }
- if (p.metaNome) {
-  const q = String(p.metaNome).toLowerCase();
-  return DATA.metas.lista.find(m => String(m.nome).toLowerCase().includes(q));
- }
- if (DATA.metas.lista.length === 1) return DATA.metas.lista[0];
- return null;
-}
-
-// ============================================================
+// PAGE: IA removida da versão estável sem assistente
+function renderIA(){ return '<div class="section"><div class="section-title">IA removida</div><div style="color:var(--text-muted);font-size:13px">O assistente de IA foi retirado desta versão.</div></div>'; }
+function setupChat(){}
 // PAGE: CONFIG
 // ============================================================
 
@@ -3386,12 +2881,14 @@ function deleteDespesa(id) {
 function openEmprestimoModal(id) {
  const e = id ? DATA.emprestimos.find(x => x.id === id) : {
   nome: '', contato: '', dataEmp: todayISO(), dataAcordada: '', dataPgto: '',
-  valor: '', juros: 0.30, origem: 'Próprio', obs: ''
+  valor: '', juros: 0.30, valorRetorno: '', origem: 'Próprio', obs: '', parcelasTotal: 1
  };
  const isEdit = !!id;
+ const retornoDefinido = Number(e.valorRetorno || 0) > 0;
+ const jurosPct = e.juros !== null && e.juros !== undefined ? (normalizeInterestRate(e.juros) * 100) : 30;
  
  showModal(`
-  <div class="modal-title">${isEdit ? '️ Editar' : ' Novo'} Empréstimo</div>
+  <div class="modal-title">${isEdit ? 'Editar' : 'Novo'} Empréstimo</div>
   <div class="form-group">
    <label class="form-label">Nome</label>
    <input class="form-input" type="text" id="e_nome" value="${e.nome || ''}">
@@ -3412,14 +2909,32 @@ function openEmprestimoModal(id) {
   </div>
   <div class="form-row">
    <div class="form-group">
-    <label class="form-label">Valor (R$)</label>
+    <label class="form-label">Valor emprestado (R$)</label>
     <input class="form-input" type="number" step="0.01" id="e_valor" value="${e.valor !== null && e.valor !== undefined ? e.valor : ''}" inputmode="decimal">
    </div>
    <div class="form-group">
-    <label class="form-label">Juros (%)</label>
-    <input class="form-input" type="number" step="0.01" id="e_juros" value="${e.juros !== null && e.juros !== undefined ? (e.juros * 100) : 30}" inputmode="decimal">
+    <label class="form-label">Forma de retorno</label>
+    <select class="form-select" id="e_tipoRetorno" onchange="toggleTipoRetornoEmprestimo()">
+     <option value="juros" ${!retornoDefinido ? 'selected' : ''}>Juros (%)</option>
+     <option value="valor" ${retornoDefinido ? 'selected' : ''}>Valor total combinado</option>
+    </select>
    </div>
   </div>
+  <div class="form-row">
+   <div class="form-group" id="e_juros_group" style="display:${retornoDefinido ? 'none' : 'block'}">
+    <label class="form-label">Juros (%)</label>
+    <input class="form-input" type="number" step="0.01" id="e_juros" value="${jurosPct}" inputmode="decimal">
+   </div>
+   <div class="form-group" id="e_valor_retorno_group" style="display:${retornoDefinido ? 'block' : 'none'}">
+    <label class="form-label">Valor total a retornar (R$)</label>
+    <input class="form-input" type="number" step="0.01" id="e_valorRetorno" value="${e.valorRetorno || ''}" inputmode="decimal" placeholder="Ex: 120,00">
+   </div>
+   <div class="form-group">
+    <label class="form-label">Parcelas</label>
+    <input class="form-input" type="number" min="1" step="1" id="e_parcelas" value="${e.parcelasTotal || 1}" ${isEdit ? 'disabled' : ''}>
+   </div>
+  </div>
+  ${!isEdit ? `<div style="font-size:12px;color:var(--text-muted);line-height:1.45;margin:-6px 0 10px">Se parcelar, o sistema cria um lançamento por parcela. Exemplo: R$ 1.000 em 2 parcelas com 30% vira 2 lançamentos de R$ 500 + 30%.</div>` : ''}
   <div class="form-group">
    <label class="form-label">Origem do capital</label>
    <select class="form-select" id="e_origem" onchange="document.getElementById('e_dono_group').style.display = this.value === 'Terceiro' ? 'block' : 'none'">
@@ -3449,34 +2964,92 @@ function openEmprestimoModal(id) {
  `);
 }
 
+function toggleTipoRetornoEmprestimo() {
+ const tipo = document.getElementById('e_tipoRetorno')?.value || 'juros';
+ const jurosGroup = document.getElementById('e_juros_group');
+ const retornoGroup = document.getElementById('e_valor_retorno_group');
+ if (jurosGroup) jurosGroup.style.display = tipo === 'juros' ? 'block' : 'none';
+ if (retornoGroup) retornoGroup.style.display = tipo === 'valor' ? 'block' : 'none';
+}
+
 function saveEmprestimo(id) {
  const origem = document.getElementById('e_origem').value;
- const data = {
-  nome: document.getElementById('e_nome').value,
-  contato: document.getElementById('e_contato').value,
-  dataEmp: document.getElementById('e_dataEmp').value || null,
-  dataAcordada: document.getElementById('e_dataAcordada').value || null,
-  dataPgto: document.getElementById('e_dataPgto').value || null,
-  valor: parseFloat(document.getElementById('e_valor').value) || null,
-  juros: (parseFloat(document.getElementById('e_juros').value) || 0) / 100,
-  origem: origem,
+ const nome = document.getElementById('e_nome').value.trim();
+ const contato = document.getElementById('e_contato').value;
+ const dataEmp = document.getElementById('e_dataEmp').value || null;
+ const dataAcordada = document.getElementById('e_dataAcordada').value || null;
+ const dataPgto = document.getElementById('e_dataPgto').value || null;
+ const valorTotalEmprestado = parseFloat(document.getElementById('e_valor').value) || 0;
+ const tipoRetorno = document.getElementById('e_tipoRetorno')?.value || 'juros';
+ const jurosPercent = parseFloat(document.getElementById('e_juros')?.value || '0') || 0;
+ const valorRetornoTotal = parseFloat(document.getElementById('e_valorRetorno')?.value || '0') || 0;
+ const parcelas = Math.max(1, parseInt(document.getElementById('e_parcelas')?.value || '1', 10) || 1);
+ const obsBase = document.getElementById('e_obs').value;
+
+ if (!nome) { showToast('Informe o nome do cliente'); return; }
+ if (!valorTotalEmprestado || valorTotalEmprestado <= 0) { showToast('Informe o valor emprestado'); return; }
+ if (tipoRetorno === 'valor' && valorRetornoTotal <= 0) { showToast('Informe o valor total a retornar'); return; }
+ if (tipoRetorno === 'valor' && valorRetornoTotal < valorTotalEmprestado) { showToast('Valor de retorno menor que o valor emprestado'); return; }
+
+ const baseData = {
+  nome,
+  contato,
+  dataEmp,
+  dataAcordada,
+  dataPgto,
+  origem,
   donoTerceiro: origem === 'Terceiro' ? (document.getElementById('e_donoTerceiro')?.value || 'Pai') : null,
-  obs: document.getElementById('e_obs').value,
+  obs: obsBase,
  };
- 
+
  if (id) {
   const idx = DATA.emprestimos.findIndex(x => x.id === id);
-  if (idx >= 0) DATA.emprestimos[idx] = { ...DATA.emprestimos[idx], ...data };
+  if (idx >= 0) DATA.emprestimos[idx] = {
+   ...DATA.emprestimos[idx],
+   ...baseData,
+   valor: valorTotalEmprestado,
+   juros: tipoRetorno === 'juros' ? jurosPercent / 100 : 0,
+   valorRetorno: tipoRetorno === 'valor' ? valorRetornoTotal : null,
+   parcelasTotal: DATA.emprestimos[idx].parcelasTotal || 1,
+   parcelaNumero: DATA.emprestimos[idx].parcelaNumero || 1,
+  };
+ } else if (parcelas > 1) {
+  const grupo = `EMP-PARC-${Date.now()}`;
+  const valorParcela = Math.round((valorTotalEmprestado / parcelas) * 100) / 100;
+  const retornoParcela = tipoRetorno === 'valor' ? Math.round((valorRetornoTotal / parcelas) * 100) / 100 : null;
+  for (let p = 1; p <= parcelas; p++) {
+   const venc = dataAcordada ? addMonthsISO(dataAcordada, p - 1) : null;
+   DATA.emprestimos.push({
+    id: nextId(DATA.emprestimos),
+    ...baseData,
+    dataAcordada: venc,
+    dataPgto: null,
+    valor: p === parcelas ? Math.round((valorTotalEmprestado - valorParcela * (parcelas - 1)) * 100) / 100 : valorParcela,
+    juros: tipoRetorno === 'juros' ? jurosPercent / 100 : 0,
+    valorRetorno: tipoRetorno === 'valor' ? (p === parcelas ? Math.round((valorRetornoTotal - retornoParcela * (parcelas - 1)) * 100) / 100 : retornoParcela) : null,
+    parcelasTotal: parcelas,
+    parcelaNumero: p,
+    grupoParcelado: grupo,
+    obs: `${obsBase ? obsBase + ' · ' : ''}Parcela ${p}/${parcelas}`,
+   });
+  }
  } else {
-  const newId = nextId(DATA.emprestimos);
-  DATA.emprestimos.push({ id: newId, ...data });
+  DATA.emprestimos.push({
+   id: nextId(DATA.emprestimos),
+   ...baseData,
+   valor: valorTotalEmprestado,
+   juros: tipoRetorno === 'juros' ? jurosPercent / 100 : 0,
+   valorRetorno: tipoRetorno === 'valor' ? valorRetornoTotal : null,
+   parcelasTotal: 1,
+   parcelaNumero: 1,
+   grupoParcelado: null,
+  });
  }
  reconcileJurosReceitas();
- 
  saveData();
  closeModal();
  render();
- showToast(id ? 'Empréstimo atualizado' : 'Empréstimo adicionado');
+ showToast(id ? 'Empréstimo atualizado' : (parcelas > 1 ? 'Empréstimo parcelado criado' : 'Empréstimo adicionado'));
 }
 
 function editEmprestimo(id) { openEmprestimoModal(id); }
@@ -3628,6 +3201,7 @@ function saveMeta(id) {
  const valorMeta = parseFloat(document.getElementById('meta_valor').value) || 0;
  const status = document.getElementById('meta_status').value;
  const obs = document.getElementById('meta_obs').value.trim();
+ const dataLimite = document.getElementById('meta_data_limite')?.value || '';
 
  if (!nome) { showToast('Informe o nome da meta'); return; }
 
@@ -3972,6 +3546,10 @@ function cloudPayloadToData(payload) {
   dataAcordada: e.data_acordada,
   dataPgto: e.data_pgto,
   valor: e.valor === null ? null : Number(e.valor),
+  valorRetorno: e.valor_retorno === null || e.valor_retorno === undefined ? null : Number(e.valor_retorno),
+  parcelasTotal: e.parcelas_total || null,
+  parcelaNumero: e.parcela_numero || null,
+  grupoParcelado: e.grupo_parcelado || null,
   juros: e.juros === null ? 0 : Number(e.juros),
   origem: e.origem || 'Próprio',
   donoTerceiro: e.dono_terceiro || '',
@@ -4010,6 +3588,7 @@ function cloudPayloadToData(payload) {
   valorMeta: m.valor_meta === null ? 0 : Number(m.valor_meta),
   status: m.status || 'Ativa',
   obs: m.obs || '',
+  dataLimite: m.data_limite || '',
   aportes: aportesPorMeta.get(m.id) || []
  })) };
  ensureMetasFormatFor(base);
@@ -4093,7 +3672,7 @@ async function persistDataToCloud(data, userId, opts = {}) {
   const despesasRows = (data.despesas || []).map(d => ({ user_id:userId, data:d.data || null, data_pgto:d.dataPgto || null, categoria:d.categoria || null, sub:d.sub || null, valor:normalizeMoney(d.valor), forma_pgto:d.formaPgto || null, necessario:d.necessario || null, descricao:d.desc || d.descricao || null }));
   if (despesasRows.length) { const { error } = await supabaseClient.from('despesas').insert(despesasRows); if (error) throw error; }
 
-  const emprestimosRows = (data.emprestimos || []).map(e => ({ user_id:userId, nome:e.nome || null, contato:e.contato || null, data_emp:e.dataEmp || null, data_acordada:e.dataAcordada || null, data_pgto:e.dataPgto || null, valor:normalizeMoney(e.valor), juros:normalizeMoney(e.juros) || 0, origem:e.origem || null, dono_terceiro:e.donoTerceiro || null, obs:e.obs || null }));
+  const emprestimosRows = (data.emprestimos || []).map(e => ({ user_id:userId, nome:e.nome || null, contato:e.contato || null, data_emp:e.dataEmp || null, data_acordada:e.dataAcordada || null, data_pgto:e.dataPgto || null, valor:normalizeMoney(e.valor), valor_retorno: normalizeMoney(e.valorRetorno) || null, parcelas_total: e.parcelasTotal || null, parcela_numero: e.parcelaNumero || null, grupo_parcelado: e.grupoParcelado || null, juros:normalizeMoney(e.juros) || 0, origem:e.origem || null, dono_terceiro:e.donoTerceiro || null, obs:e.obs || null }));
   if (emprestimosRows.length) { const { error } = await supabaseClient.from('emprestimos').insert(emprestimosRows); if (error) throw error; }
 
   const donosRows = [...new Set(data.donosTerceiros || [])].filter(Boolean).map(nome => ({ user_id:userId, nome }));
@@ -4111,6 +3690,7 @@ async function persistDataToCloud(data, userId, opts = {}) {
     nome: meta.nome || 'Meta sem nome',
     valor_meta: normalizeMoney(meta.valorMeta) || 0,
     status: meta.status || 'Ativa',
+    data_limite: meta.dataLimite || null,
     obs: meta.obs || null
    }).select('id').single();
    if (metaError) throw metaError;
