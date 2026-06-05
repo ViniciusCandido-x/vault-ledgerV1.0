@@ -866,9 +866,15 @@ function calcCapitalProprioRodando() {
 }
 
 function calcCapitalTerceiros() {
- return DATA.emprestimos
-  .filter(e => e.origem === 'Terceiro' && getStatus(e) !== 'Pago')
+ // O que você ainda DEVE aos donos = todo capital de terceiro (pago pelo cliente + em aberto) − já devolvido.
+ // Inclui empréstimos já pagos cujo capital ainda não foi devolvido ao dono, e desconta as devoluções feitas.
+ const totalTerceiro = DATA.emprestimos
+  .filter(e => e.origem === 'Terceiro')
   .reduce((s, e) => s + (e.valor || 0), 0);
+ const totalDevolvido = (DATA.devolucoes || [])
+  .reduce((s, d) => s + (d.valor || 0), 0);
+ const saldo = totalTerceiro - totalDevolvido;
+ return saldo > 0 ? saldo : 0;
 }
 
 function calcInvestimentos() {
