@@ -3566,7 +3566,7 @@ function cloudPayloadToData(payload) {
   id: idx + 1,
   data: d.data,
   valor: d.valor === null ? null : Number(d.valor),
-  destino: d.destino || '',
+  dono: d.destino || d.dono || '',
   obs: d.obs || ''
  }));
  base.investimentos = (payload.investimentos || []).map((i, idx) => ({
@@ -3684,7 +3684,7 @@ async function persistDataToCloud(data, userId, opts = {}) {
   const donosRows = [...new Set(data.donosTerceiros || [])].filter(Boolean).map(nome => ({ user_id:userId, nome }));
   if (donosRows.length) { const { error } = await supabaseClient.from('donos_terceiros').insert(donosRows); if (error) throw error; }
 
-  const devolucoesRows = (data.devolucoes || []).map(d => ({ user_id:userId, data:d.data || null, valor:normalizeMoney(d.valor), destino:d.destino || null, obs:d.obs || null }));
+  const devolucoesRows = (data.devolucoes || []).map(d => ({ user_id:userId, data:d.data || null, valor:normalizeMoney(d.valor), destino:d.dono || d.destino || null, obs:d.obs || null }));
   if (devolucoesRows.length) { const { error } = await supabaseClient.from('devolucoes').insert(devolucoesRows); if (error) throw error; }
 
   const investimentosRows = (data.investimentos || []).map(i => ({ user_id:userId, data:i.data || null, tipo:i.tipo || null, movimento:i.movimento || null, valor:normalizeMoney(i.valor), descricao:i.descricao || null }));
